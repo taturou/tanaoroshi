@@ -3,7 +3,7 @@ import { useInventory } from './hooks/useInventory'
 import { useSettings } from './hooks/useSettings'
 import { Scanner } from './components/Scanner'
 import { ReloadPrompt } from './components/ReloadPrompt'
-import { Camera, List as ListIcon, Settings, Download, Upload, Trash2, Loader2, Edit2 } from 'lucide-react'
+import { Camera, List as ListIcon, Settings, Download, Upload, Trash2, Loader2, Edit2, Image as ImageIcon } from 'lucide-react'
 import './index.css'
 
 function App() {
@@ -17,6 +17,7 @@ function App() {
   const [quantityInput, setQuantityInput] = useState<number>(1);
   const [productNameInput, setProductNameInput] = useState<string>("");
   const [manufacturerInput, setManufacturerInput] = useState<string>("");
+  const [imageUrlInput, setImageUrlInput] = useState<string | null>(null);
   const [isFetchingName, setIsFetchingName] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isExistingItem, setIsExistingItem] = useState<boolean>(false);
@@ -28,7 +29,7 @@ function App() {
   // 編集ダイアログ用ステート
   const [editingItem, setEditingItem] = useState<{id: string, name: string, manufacturer: string} | null>(null);
 
-  const fetchProductInfo = async (janCode: string, retries = 2): Promise<{name: string, manufacturer: string} | null> => {
+  const fetchProductInfo = async (janCode: string, retries = 2): Promise<{name: string, manufacturer: string, imageUrl: string | null} | null> => {
     if (!clientId) return null;
     
     setApiError(null);
@@ -37,8 +38,8 @@ function App() {
     const targetUrl = encodeURIComponent(`https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`);
     
     const proxies = [
-      `https://corsproxy.io/?url=${targetUrl}`,
-      `https://api.allorigins.win/get?url=${targetUrl}`
+      `https://api.allorigins.win/get?url=${targetUrl}`,
+      `https://corsproxy.io/?url=${targetUrl}`
     ];
 
     for (let attempt = 0; attempt <= retries; attempt++) {
@@ -69,7 +70,8 @@ function App() {
             setIsFetchingName(false);
             const item = data.hits[0];
             const manufacturer = item.brand?.name || "";
-            return { name: item.name, manufacturer };
+            const imageUrl = item.image?.medium || item.image?.small || null;
+            return { name: item.name, manufacturer, imageUrl };
           } else {
             setApiError("商品がデータベースに見つかりませんでした。");
             setIsFetchingName(false);
@@ -78,7 +80,7 @@ function App() {
         } catch (error: any) {
           console.error(`Attempt ${attempt + 1} with ${proxyUrl} failed:`, error);
           if (attempt === retries && proxyUrl === proxies[proxies.length - 1]) {
-            setApiError(`通信エラー（複数回試行）: APIサーバーが混雑しています。手入力してください。`);
+            setApiError(`通信エラー: プロキシサーバーが応答しません。手入力してください。`);
           }
         }
       }
@@ -104,6 +106,7 @@ function App() {
       setOriginalQuantity(existingItem.quantity);
       setProductNameInput(existingItem.productName);
       setManufacturerInput(existingItem.manufacturerName || "");
+      setImageUrlInput(existingItem.imageUrl || null);
       setQuantityInput(existingItem.quantity + 1);
     } else {
       setIsExistingItem(false);
@@ -111,12 +114,14 @@ function App() {
       setQuantityInput(1);
       setProductNameInput("");
       setManufacturerInput("");
+      setImageUrlInput(null);
       
       if (clientId) {
         const info = await fetchProductInfo(decodedText);
         if (info) {
           setProductNameInput(info.name);
           setManufacturerInput(info.manufacturer);
+          setImageUrlInput(info.imageUrl);
           setIsApiFetched(true);
         }
       }
@@ -130,6 +135,7 @@ function App() {
       janCode: scannedJan,
       productName: productNameInput || "名称未設定",
       manufacturerName: manufacturerInput,
+      imageUrl: imageUrlInput || undefined,
       quantity: quantityInput,
       userName: userName || "未設定",
     });
@@ -138,6 +144,7 @@ function App() {
     setQuantityInput(1);
     setProductNameInput("");
     setManufacturerInput("");
+    setImageUrlInput(null);
     setIsExistingItem(false);
     setOriginalQuantity(null);
     setIsApiFetched(false);
@@ -149,6 +156,7 @@ function App() {
       setIsExistingItem(false);
       setOriginalQuantity(null);
       setIsApiFetched(false);
+      setImageUrlInput(null);
     }
   };
 
@@ -160,6 +168,7 @@ function App() {
           janCode: itemToUpdate.janCode,
           productName: editingItem.name,
           manufacturerName: editingItem.manufacturer,
+          imageUrl: itemToUpdate.imageUrl,
           quantity: itemToUpdate.quantity,
           userName: itemToUpdate.userName
         });
@@ -243,10 +252,23 @@ function App() {
               <div className="input-form card">
                 <h3>商品登録 {isExistingItem ? <span className="badge badge-info">リスト登録済</span> : <span className="badge badge-success">新規</span>}</h3>
                 
-                <div className="form-group">
-                  <label>JANコード</label>
-                  <input type="text" value={scannedJan} readOnly className="form-control readonly" />
+                <div className="form-group" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                  <div className="product-image-container" style={{ width: '80px', height: '80px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                    {imageUrlInput ? (
+                      <img src={imageUrlInput} alt="商品画像" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; setImageUrlInput(null); }} />
+                    ) : (
+                      <div style={{ textAlign: 'center', color: '#adb5bd' }}>
+                        <ImageIcon style={{ margin: '0 auto' }} />
+                        <span style={{ fontSize: '0.6rem', display: 'block' }}>No Image</span>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label>JANコード</label>
+                    <input type="text" value={scannedJan} readOnly className="form-control readonly" />
+                  </div>
                 </div>
+
                 <div className="form-group">
                   <label>商品名</label>
                   <div style={{ position: 'relative' }}>
@@ -317,43 +339,52 @@ function App() {
             ) : (
               <ul className="inventory-list">
                 {items.map(item => (
-                  <li key={item.id} className="inventory-item card">
-                    <div className="item-details">
-                      <div className="item-jan" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{item.janCode}</span>
-                        <button className="btn-icon" onClick={() => setEditingItem({ id: item.id, name: item.productName, manufacturer: item.manufacturerName || "" })}>
-                          <Edit2 className="icon-small" style={{ color: 'var(--primary-color)' }} />
-                        </button>
-                      </div>
-                      <div className="item-name">{item.productName}</div>
-                      {item.manufacturerName && <div className="item-manufacturer" style={{ fontSize: '0.85rem', color: 'var(--secondary-color)', marginTop: '4px' }}>{item.manufacturerName}</div>}
+                  <li key={item.id} className="inventory-item card" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <div className="item-image" style={{ width: '60px', height: '60px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '6px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} loading="lazy" />
+                      ) : (
+                        <ImageIcon className="icon-small" style={{ color: '#adb5bd' }} />
+                      )}
                     </div>
-                    <div className="item-actions">
-                      <div className="item-quantity">
-                        <span className="qty-label">数量:</span>
-                        <div className="quantity-control-group small">
-                          <button 
-                            className="btn btn-qty btn-minus small" 
-                            onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                          >
-                            -
-                          </button>
-                          <div className="quantity-display small">{item.quantity}</div>
-                          <button 
-                            className="btn btn-qty btn-plus small" 
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          >
-                            +
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: 0 }}>
+                      <div className="item-details" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+                        <div className="item-jan" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>{item.janCode}</span>
+                          <button className="btn-icon" onClick={() => setEditingItem({ id: item.id, name: item.productName, manufacturer: item.manufacturerName || "" })}>
+                            <Edit2 className="icon-small" style={{ color: 'var(--primary-color)' }} />
                           </button>
                         </div>
+                        <div className="item-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.productName}</div>
+                        {item.manufacturerName && <div className="item-manufacturer" style={{ fontSize: '0.85rem', color: 'var(--secondary-color)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.manufacturerName}</div>}
                       </div>
-                      <button className="btn-icon text-danger" onClick={() => {
-                        if (window.confirm(`「${item.productName}」をリストから削除しますか？`)) {
-                          removeItem(item.id);
-                        }
-                      }}>
-                        <Trash2 className="icon-small" />
-                      </button>
+                      <div className="item-actions" style={{ paddingTop: 0 }}>
+                        <div className="item-quantity">
+                          <span className="qty-label">数量:</span>
+                          <div className="quantity-control-group small">
+                            <button 
+                              className="btn btn-qty btn-minus small" 
+                              onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                            >
+                              -
+                            </button>
+                            <div className="quantity-display small">{item.quantity}</div>
+                            <button 
+                              className="btn btn-qty btn-plus small" 
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                        <button className="btn-icon text-danger" onClick={() => {
+                          if (window.confirm(`「${item.productName}」をリストから削除しますか？`)) {
+                            removeItem(item.id);
+                          }
+                        }}>
+                          <Trash2 className="icon-small" />
+                        </button>
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -387,7 +418,7 @@ function App() {
                 placeholder="Client ID を入力してください"
                 className="form-control" 
               />
-              <small>※ 登録するとJANコードから商品名を自動取得します。<br/>(※外部API仕様によりブラウザから直接呼べない場合は自動取得されません)</small>
+              <small>※ 登録するとJANコードから商品名と画像を自動取得します。</small>
             </div>
 
             <hr />
