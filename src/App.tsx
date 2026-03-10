@@ -20,6 +20,7 @@ function App() {
   const [isFetchingName, setIsFetchingName] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isExistingItem, setIsExistingItem] = useState<boolean>(false);
+  const [originalQuantity, setOriginalQuantity] = useState<number | null>(null);
   const [isApiFetched, setIsApiFetched] = useState<boolean>(false); // APIで情報取得できたか
 
   // 編集ダイアログ用ステート
@@ -98,11 +99,13 @@ function App() {
     
     if (existingItem) {
       setIsExistingItem(true);
+      setOriginalQuantity(existingItem.quantity);
       setProductNameInput(existingItem.productName);
       setManufacturerInput(existingItem.manufacturerName || "");
       setQuantityInput(existingItem.quantity + 1);
     } else {
       setIsExistingItem(false);
+      setOriginalQuantity(null);
       setQuantityInput(1);
       setProductNameInput("");
       setManufacturerInput("");
@@ -133,12 +136,14 @@ function App() {
     setProductNameInput("");
     setManufacturerInput("");
     setIsExistingItem(false);
+    setOriginalQuantity(null);
     setIsApiFetched(false);
   };
 
   const handleCancelScan = () => {
     setScannedJan(null);
     setIsExistingItem(false);
+    setOriginalQuantity(null);
     setIsApiFetched(false);
   };
 
@@ -229,7 +234,7 @@ function App() {
                 <div className="form-group">
                   <label>
                     数量 
-                    {isExistingItem && <span style={{ color: 'var(--primary-color)', fontSize: '0.85rem', marginLeft: '8px' }}>(+1 しました)</span>}
+                    {isExistingItem && originalQuantity !== null && <span style={{ color: 'var(--secondary-color)', fontSize: '0.85rem', marginLeft: '8px' }}>(元の数量: {originalQuantity})</span>}
                   </label>
                   <div className="quantity-control-group large">
                     <button 
