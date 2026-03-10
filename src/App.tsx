@@ -1,14 +1,14 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useInventory } from './hooks/useInventory'
 import { useSettings } from './hooks/useSettings'
 import { Scanner } from './components/Scanner'
 import { ReloadPrompt } from './components/ReloadPrompt'
-import { Camera, List as ListIcon, Settings, Download, Trash2, Loader2, Edit2 } from 'lucide-react'
+import { Camera, List as ListIcon, Settings, Download, Upload, Trash2, Loader2, Edit2 } from 'lucide-react'
 import './index.css'
 
 function App() {
-  const { items, addOrUpdateItem, updateQuantity, removeItem, clearAll, exportCSV } = useInventory();
-  const { clientId, setClientId } = useSettings();
+  const { items, addOrUpdateItem, updateQuantity, removeItem, clearAll, exportCSV, importCSV } = useInventory();
+  const { clientId, setClientId, userName, setUserName } = useSettings();
   const [activeTab, setActiveTab] = useState<'scan' | 'list' | 'settings'>('scan');
   
   // スキャン中の状態管理
@@ -21,7 +21,9 @@ function App() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isExistingItem, setIsExistingItem] = useState<boolean>(false);
   const [originalQuantity, setOriginalQuantity] = useState<number | null>(null);
-  const [isApiFetched, setIsApiFetched] = useState<boolean>(false); // APIで情報取得できたか
+  const [isApiFetched, setIsApiFetched] = useState<boolean>(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 編集ダイアログ用ステート
   const [editingItem, setEditingItem] = useState<{id: string, name: string, manufacturer: string} | null>(null);
@@ -129,6 +131,7 @@ function App() {
       productName: productNameInput || "名称未設定",
       manufacturerName: manufacturerInput,
       quantity: quantityInput,
+      userName: userName || "未設定",
     });
     
     setScannedJan(null);
@@ -151,21 +154,59 @@ function App() {
 
   const handleSaveEdit = () => {
     if (editingItem) {
-      // itemsを直接書き換えるのではなく、addOrUpdateItemの仕組みを利用して更新する（janCodeが必要なので探す）
       const itemToUpdate = items.find(i => i.id === editingItem.id);
       if (itemToUpdate) {
         addOrUpdateItem({
           janCode: itemToUpdate.janCode,
           productName: editingItem.name,
           manufacturerName: editingItem.manufacturer,
-          quantity: itemToUpdate.quantity
+          quantity: itemToUpdate.quantity,
+          userName: itemToUpdate.userName
         });
       }
       setEditingItem(null);
     }
   };
 
-  // 入力をロックするかどうか（既存アイテム、またはAPIで取得できた場合はロック）
+  const handleExportCSV = () => {
+    let exportUserName = userName;
+    if (!exportUserName) {
+      const input = window.prompt("CSVに出力する担当者名を入力してください。");
+      if (input !== null && input.trim() !== "") {
+        exportUserName = input.trim();
+        setUserName(exportUserName); // ついでに設定にも保存
+      }
+    }
+    exportCSV(exportUserName);
+  };
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const modeChoice = window.confirm("「OK」を押すと現在のリストにCSVのデータを追加（マージ）します。\n「キャンセル」を押すと現在のリストを消去してCSVのデータで上書き（リプレイス）します。");
+    const mode = modeChoice ? 'merge' : 'replace';
+
+    if (!modeChoice) {
+      if (!window.confirm("本当に現在のデータを全て消去して上書きしますか？")) {
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return; 
+      }
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        importCSV(content, mode);
+        alert("CSVの読み込みが完了しました。");
+      }
+    };
+    reader.readAsText(file);
+    
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const isInputLocked = isExistingItem || isApiFetched;
 
   return (
@@ -267,9 +308,6 @@ function App() {
           <div className="list-section">
             <div className="list-header">
               <h2>記録データ ({items.length}件)</h2>
-              <button className="btn btn-outline" onClick={exportCSV} disabled={items.length === 0}>
-                <Download className="icon-small" /> CSV出力
-              </button>
             </div>
             
             {items.length === 0 ? (
@@ -291,7 +329,7 @@ function App() {
                     <div className="item-actions">
                       <div className="item-quantity">
                         <span className="qty-label">数量:</span>
-                        <div className="quantity-control-group">
+                        <div className="quantity-control-group small">
                           <button 
                             className="btn btn-qty btn-minus small" 
                             onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
@@ -327,6 +365,18 @@ function App() {
             <h2>設定</h2>
             
             <div className="form-group">
+              <label>担当者名</label>
+              <input 
+                type="text" 
+                value={userName} 
+                onChange={(e) => setUserName(e.target.value)} 
+                placeholder="ユーザ名を入力（空欄可）"
+                className="form-control" 
+              />
+              <small>※ スキャンした商品データの「ユーザ名」列に記録されます。</small>
+            </div>
+
+            <div className="form-group mt-4">
               <label>Yahoo!ショッピングAPI Client ID</label>
               <input 
                 type="text" 
@@ -336,6 +386,29 @@ function App() {
                 className="form-control" 
               />
               <small>※ 登録するとJANコードから商品名を自動取得します。<br/>(※外部API仕様によりブラウザから直接呼べない場合は自動取得されません)</small>
+            </div>
+
+            <hr />
+            <div className="form-group">
+              <h3>データ入出力</h3>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>記録データをCSV形式で出力したり、外部のCSVデータを読み込んでリストを復元・合算できます。</p>
+              
+              <div className="form-actions" style={{ flexDirection: 'column', gap: '0.5rem' }}>
+                <button className="btn btn-primary" onClick={handleExportCSV} disabled={items.length === 0}>
+                  <Download className="icon" /> CSVを出力する
+                </button>
+                
+                <label className="btn btn-outline" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+                  <Upload className="icon" /> CSVを読み込む
+                  <input 
+                    type="file" 
+                    accept=".csv" 
+                    onChange={handleImportCSV} 
+                    style={{ display: 'none' }} 
+                    ref={fileInputRef}
+                  />
+                </label>
+              </div>
             </div>
 
             <hr />
