@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { useEffect, useRef, useState } from 'react';
+import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
+import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 
 interface ScannerProps {
   onScan: (decodedText: string) => void;
@@ -7,49 +8,118 @@ interface ScannerProps {
 }
 
 export function Scanner({ onScan, isActive }: ScannerProps) {
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const containerId = "reader";
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [statusMsg, setStatusMsg] = useState<string>("カメラを準備中...");
+  const [scanAttempts, setScanAttempts] = useState<number>(0);
+  const controlsRef = useRef<IScannerControls | null>(null);
 
   useEffect(() => {
+    let isComponentMounted = true;
+
     if (!isActive) {
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop().catch(console.error);
+      if (controlsRef.current) {
+        controlsRef.current.stop();
+        controlsRef.current = null;
       }
       return;
     }
 
-    const html5Qrcode = new Html5Qrcode(containerId);
-    scannerRef.current = html5Qrcode;
+    setStatusMsg("Zxingスキャナー起動中...");
+
+    // JANコード（EAN_13, EAN_8）の読み取り精度を高めるためのヒント設定
+    const hints = new Map();
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.UPC_A,
+      BarcodeFormat.UPC_E,
+      BarcodeFormat.CODE_128,
+      BarcodeFormat.CODE_39,
+      BarcodeFormat.QR_CODE
+    ]);
+    hints.set(DecodeHintType.TRY_HARDER, true);
+
+    const reader = new BrowserMultiFormatReader(hints);
 
     const startScanner = async () => {
+      if (!videoRef.current || !isComponentMounted) return;
       try {
-        await html5Qrcode.start(
-          { facingMode: "environment" }, // 背面カメラを指定
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 100 }, // バーコードに適した長方形の読取領域
-            aspectRatio: 1.0,
-          },
-          (decodedText) => {
-            onScan(decodedText);
-          },
-          () => {
-            // スキャン失敗時は特に何もしない（リアルタイムで何度も呼ばれるため）
+        const videoElement = videoRef.current;
+
+        // デバイスのカメラを取得して映像を流し、デコードを開始する
+        controlsRef.current = await reader.decodeFromConstraints(
+          { audio: false, video: { facingMode: "environment" } },
+          videoElement,
+          (result, error) => {
+            if (!isComponentMounted) return;
+            
+            if (result) {
+              const text = result.getText();
+              setStatusMsg(`読取成功: ${text}`);
+              
+              // 連続読み取りを防ぐために一時的にストップ
+              if (controlsRef.current) {
+                  controlsRef.current.stop();
+                  controlsRef.current = null;
+              }
+              
+              // App側へスキャン結果を通知
+              onScan(text);
+            }
+            if (error) {
+              // NotFoundException が毎フレーム飛んでくるためカウントする
+              setScanAttempts(prev => prev + 1);
+              setStatusMsg("バーコードを探しています...");
+            }
           }
         );
+        if (isComponentMounted) {
+            setStatusMsg("カメラ起動完了。バーコードを映してください。");
+        }
       } catch (err) {
-        console.error("Failed to start scanner", err);
+        console.error("Zxing setup failed:", err);
+        if (isComponentMounted) {
+            setStatusMsg(`カメラ起動失敗: ${err}`);
+        }
       }
     };
 
-    startScanner();
+    // DOMマウント完了を待つために少し遅延
+    const timerId = setTimeout(() => {
+        startScanner();
+    }, 500);
 
     return () => {
-      if (scannerRef.current?.isScanning) {
-        scannerRef.current.stop().catch(console.error);
+      isComponentMounted = false;
+      clearTimeout(timerId);
+      if (controlsRef.current) {
+        controlsRef.current.stop();
+        controlsRef.current = null;
       }
     };
   }, [isActive, onScan]);
 
-  return <div id={containerId} style={{ width: '100%', maxWidth: '400px', margin: '0 auto' }}></div>;
+  return (
+    <div style={{ width: '100%', maxWidth: '400px', margin: '0 auto', textAlign: 'center' }}>
+      <div style={{ padding: '8px', backgroundColor: '#e9ecef', borderRadius: '4px', marginBottom: '8px', fontSize: '0.9rem' }}>
+        <strong>状態:</strong> {statusMsg} <br/>
+        <small style={{ color: '#6c757d' }}>解析フレーム数: {scanAttempts}</small>
+      </div>
+      <div style={{ position: 'relative', width: '100%', minHeight: '300px', backgroundColor: '#000', overflow: 'hidden' }}>
+        <video 
+          ref={videoRef} 
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+          playsInline 
+          muted 
+          autoPlay
+        />
+        {/* ガイド枠（UIのみで機能には影響しない） */}
+        <div style={{
+          position: 'absolute', top: '25%', left: '10%', right: '10%', bottom: '25%',
+          border: '2px solid rgba(0, 255, 0, 0.5)', borderRadius: '8px', boxShadow: '0 0 0 4000px rgba(0,0,0,0.4)',
+          pointerEvents: 'none'
+        }}></div>
+      </div>
+    </div>
+  );
 }
