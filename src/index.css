@@ -20,6 +20,15 @@ body {
   background-color: var(--bg-color);
   color: var(--text-color);
   overscroll-behavior-y: none;
+  /* アプリ全体でテキスト選択を無効化（誤操作防止） */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 入力欄など、テキスト選択が必要な場所は個別に許可 */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .app-container {
