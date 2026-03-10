@@ -44,8 +44,16 @@ export function Scanner({ onScan, isActive }: ScannerProps) {
         const videoElement = videoRef.current;
 
         // デバイスのカメラを取得して映像を流し、デコードを開始する
+        // 解像度を指定（HD以上）することで小さなバーコードも認識しやすくする
         controlsRef.current = await reader.decodeFromConstraints(
-          { audio: false, video: { facingMode: "environment" } },
+          { 
+            audio: false, 
+            video: { 
+              facingMode: "environment",
+              width: { min: 640, ideal: 1280, max: 1920 },
+              height: { min: 480, ideal: 720, max: 1080 }
+            } 
+          },
           videoElement,
           (result, error) => {
             if (!isComponentMounted) return;
@@ -71,7 +79,7 @@ export function Scanner({ onScan, isActive }: ScannerProps) {
           }
         );
         if (isComponentMounted) {
-            setStatusMsg("カメラ起動完了。バーコードを映してください。");
+            setStatusMsg("カメラ起動完了。画面タップでピント調整。");
         }
       } catch (err) {
         console.error("Zxing setup failed:", err);
@@ -96,13 +104,40 @@ export function Scanner({ onScan, isActive }: ScannerProps) {
     };
   }, [isActive, onScan]);
 
+  // タップしてピントを合わせる（フォーカスを再トリガー）
+  const handleVideoClick = async () => {
+    if (!videoRef.current) return;
+    
+    try {
+        const stream = videoRef.current.srcObject as MediaStream;
+        const track = stream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities() as any;
+
+        // focusMode がサポートされている場合は、再設定してフォーカスを促す
+        if (capabilities.focusMode) {
+            await track.applyConstraints({
+                advanced: [{ focusMode: 'continuous' } as any]
+            });
+            setStatusMsg("ピントを再調整しました。");
+            setTimeout(() => setStatusMsg("バーコードを探しています..."), 2000);
+        } else {
+            setStatusMsg("この端末はフォーカス制御に非対応です。");
+        }
+    } catch (e) {
+        console.error("Failed to focus:", e);
+    }
+  };
+
   return (
     <div style={{ width: '100%', maxWidth: '400px', margin: '0 auto', textAlign: 'center' }}>
       <div style={{ padding: '8px', backgroundColor: '#e9ecef', borderRadius: '4px', marginBottom: '8px', fontSize: '0.9rem' }}>
         <strong>状態:</strong> {statusMsg} <br/>
         <small style={{ color: '#6c757d' }}>解析フレーム数: {scanAttempts}</small>
       </div>
-      <div style={{ position: 'relative', width: '100%', minHeight: '300px', backgroundColor: '#000', overflow: 'hidden' }}>
+      <div 
+        style={{ position: 'relative', width: '100%', minHeight: '300px', backgroundColor: '#000', overflow: 'hidden', cursor: 'pointer' }}
+        onClick={handleVideoClick}
+      >
         <video 
           ref={videoRef} 
           style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
