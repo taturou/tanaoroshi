@@ -7,7 +7,7 @@ import { Camera, List as ListIcon, Settings, Download, Trash2, Loader2 } from 'l
 import './index.css'
 
 function App() {
-  const { items, addItem, updateQuantity, removeItem, clearAll, exportCSV } = useInventory();
+  const { items, addOrUpdateItem, updateQuantity, removeItem, clearAll, exportCSV } = useInventory();
   const { clientId, setClientId } = useSettings();
   const [activeTab, setActiveTab] = useState<'scan' | 'list' | 'settings'>('scan');
   
@@ -86,13 +86,25 @@ function App() {
   const handleScan = async (decodedText: string) => {
     setIsScanning(false);
     setScannedJan(decodedText);
-    setQuantityInput("1");
-    setProductNameInput("");
+    setApiError(null);
     
-    if (clientId) {
-      const name = await fetchProductName(decodedText);
-      if (name) {
-        setProductNameInput(name);
+    // 既にリストに存在するかチェック
+    const existingItem = items.find(item => item.janCode === decodedText);
+    
+    if (existingItem) {
+      // 存在する場合は、商品名をリストから復元し、数量を+1した状態をフォームにセットする（APIは呼ばない）
+      setProductNameInput(existingItem.productName);
+      setQuantityInput((existingItem.quantity + 1).toString());
+    } else {
+      // 新規の場合は数量1、商品名は空欄（API設定があれば取得）からスタート
+      setQuantityInput("1");
+      setProductNameInput("");
+      
+      if (clientId) {
+        const name = await fetchProductName(decodedText);
+        if (name) {
+          setProductNameInput(name);
+        }
       }
     }
   };
@@ -100,7 +112,7 @@ function App() {
   const handleSaveScannedItem = () => {
     if (!scannedJan) return;
     
-    addItem({
+    addOrUpdateItem({
       janCode: scannedJan,
       productName: productNameInput || "名称未設定",
       quantity: parseInt(quantityInput, 10) || 1,

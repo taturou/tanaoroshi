@@ -29,6 +29,33 @@ export function useInventory() {
     setItems((prev) => [newItem, ...prev]);
   };
 
+  const addOrUpdateItem = (item: Omit<InventoryItem, 'id' | 'scannedAt'>) => {
+    setItems((prev) => {
+      const existingIndex = prev.findIndex((i) => i.janCode === item.janCode);
+      if (existingIndex >= 0) {
+        // 既存のものがある場合は、数量と商品名（手入力等で更新された場合）を上書きし、スキャン日時を更新する
+        const updatedItems = [...prev];
+        updatedItems[existingIndex] = {
+          ...updatedItems[existingIndex],
+          productName: item.productName,
+          quantity: item.quantity,
+          scannedAt: Date.now(),
+        };
+        // 更新したアイテムを一番上に持ってくる
+        const [updatedItem] = updatedItems.splice(existingIndex, 1);
+        return [updatedItem, ...updatedItems];
+      } else {
+        // 新規追加
+        const newItem: InventoryItem = {
+          ...item,
+          id: crypto.randomUUID(),
+          scannedAt: Date.now(),
+        };
+        return [newItem, ...prev];
+      }
+    });
+  };
+
   const updateQuantity = (id: string, quantity: number) => {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, quantity } : item))
@@ -67,5 +94,5 @@ export function useInventory() {
     URL.revokeObjectURL(url);
   };
 
-  return { items, addItem, updateQuantity, removeItem, clearAll, exportCSV };
+  return { items, addItem, addOrUpdateItem, updateQuantity, removeItem, clearAll, exportCSV };
 }
