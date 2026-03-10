@@ -1,0 +1,10 @@
+preferred_auth_method = "apikey"
+model = "gpt-5.3-codex"
+model_reasoning_effort = "medium"
+personality = "friendly"
+suppress_unstable_features_warning = true
+
+[features]
+multi_agent = true
+default_mode_request_user_input = true
+
