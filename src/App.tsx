@@ -342,26 +342,34 @@ function App() {
             ) : (
               <ul className="inventory-list">
                 {items.map(item => (
-                  <li key={item.id} className="inventory-item card" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <div className="item-image" style={{ width: '60px', height: '60px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '6px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                  <li key={item.id} className="inventory-item card" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                    {/* 左側の画像エリア */}
+                    <div className="item-image" style={{ width: '60px', height: '60px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '6px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', marginTop: '4px' }}>
                       {item.imageUrl ? (
                         <img src={item.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} loading="lazy" />
                       ) : (
                         <ImageIcon className="icon-small" style={{ color: '#adb5bd' }} />
                       )}
                     </div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: 0 }}>
-                      <div className="item-details" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+
+                    {/* 右側の詳細エリア（元の縦並びデザインを維持） */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="item-details" style={{ marginBottom: '0.5rem' }}>
                         <div className="item-jan" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span>{item.janCode}</span>
                           <button className="btn-icon" onClick={() => setEditingItem({ id: item.id, name: item.productName, manufacturer: item.manufacturerName || "" })}>
                             <Edit2 className="icon-small" style={{ color: 'var(--primary-color)' }} />
                           </button>
                         </div>
-                        <div className="item-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.productName}</div>
-                        {item.manufacturerName && <div className="item-manufacturer" style={{ fontSize: '0.85rem', color: 'var(--secondary-color)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.manufacturerName}</div>}
+                        <div className="item-name" style={{ fontWeight: 'bold', fontSize: '1.1rem', wordBreak: 'break-all' }}>{item.productName}</div>
+                        {item.manufacturerName && (
+                          <div className="item-manufacturer" style={{ fontSize: '0.85rem', color: 'var(--secondary-color)', marginTop: '2px' }}>
+                            {item.manufacturerName}
+                          </div>
+                        )}
                       </div>
-                      <div className="item-actions" style={{ paddingTop: 0 }}>
+                      
+                      <div className="item-actions">
                         <div className="item-quantity">
                           <span className="qty-label">数量:</span>
                           <div className="quantity-control-group small">
