@@ -39,6 +39,7 @@ export function useInventory() {
           ...updatedItems[existingIndex],
           productName: item.productName,
           manufacturerName: item.manufacturerName,
+          imageUrl: item.imageUrl,
           userName: item.userName,
           quantity: item.quantity,
           scannedAt: Date.now(),

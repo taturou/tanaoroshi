@@ -3,6 +3,7 @@ export interface InventoryItem {
   janCode: string;
   productName: string;
   manufacturerName?: string;
+  imageUrl?: string;
   userName?: string;
   quantity: number;
   scannedAt: number;
