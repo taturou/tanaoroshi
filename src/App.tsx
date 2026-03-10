@@ -23,9 +23,11 @@ function App() {
     
     try {
       setIsFetchingName(true);
-      // Yahoo Shopping API
-      const url = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`;
-      const response = await fetch(url);
+      // Yahoo Shopping API (CORS制限を回避するために allorigins プロキシを経由)
+      const targetUrl = encodeURIComponent(`https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`);
+      const proxyUrl = `https://api.allorigins.win/raw?url=${targetUrl}`;
+      
+      const response = await fetch(proxyUrl);
       
       if (!response.ok) throw new Error("API request failed");
       

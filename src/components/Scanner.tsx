@@ -26,17 +26,14 @@ export function Scanner({ onScan, isActive }: ScannerProps) {
 
     setStatusMsg("Zxingスキャナー起動中...");
 
-    // JANコード（EAN_13, EAN_8）の読み取り精度を高めるためのヒント設定
+    // 負荷を下げて高速化するため、JANコード（EAN_13, EAN_8）のみに絞り込む
     const hints = new Map();
     hints.set(DecodeHintType.POSSIBLE_FORMATS, [
       BarcodeFormat.EAN_13,
-      BarcodeFormat.EAN_8,
-      BarcodeFormat.UPC_A,
-      BarcodeFormat.UPC_E,
-      BarcodeFormat.CODE_128,
-      BarcodeFormat.CODE_39,
-      BarcodeFormat.QR_CODE
+      BarcodeFormat.EAN_8
     ]);
+    // TRY_HARDERは認識率は上がるが処理が重くなるため、速度優先の場合はオフにするのも手だが、
+    // フォーマットを2つに絞ったことで十分軽くなるため維持する。
     hints.set(DecodeHintType.TRY_HARDER, true);
 
     const reader = new BrowserMultiFormatReader(hints);
