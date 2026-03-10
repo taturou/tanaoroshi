@@ -1,5 +1,5 @@
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import './index.css'; // スタイル用
+import '../index.css'; // スタイル用
 
 export function ReloadPrompt() {
   const {
@@ -7,11 +7,11 @@ export function ReloadPrompt() {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    onRegistered(r) {
+    onRegistered(r: any) {
       // 登録成功時のログ（必要に応じて）
       console.log('SW Registered: ', r);
     },
-    onRegisterError(error) {
+    onRegisterError(error: any) {
       console.error('SW registration error', error);
     },
   });
