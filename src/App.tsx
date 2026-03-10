@@ -3,7 +3,7 @@ import { useInventory } from './hooks/useInventory'
 import { useSettings } from './hooks/useSettings'
 import { Scanner } from './components/Scanner'
 import { ReloadPrompt } from './components/ReloadPrompt'
-import { Camera, List as ListIcon, Settings, Download, Upload, Trash2, Loader2, Edit2, Image as ImageIcon } from 'lucide-react'
+import { Camera, List as ListIcon, Settings, Download, Upload, Trash2, Loader2, Edit2, Image as ImageIcon, X } from 'lucide-react'
 import './index.css'
 
 function App() {
@@ -17,6 +17,7 @@ function App() {
   const [quantityInput, setQuantityInput] = useState<number>(1);
   const [productNameInput, setProductNameInput] = useState<string>("");
   const [manufacturerInput, setManufacturerInput] = useState<string>("");
+  const [categoryInput, setCategoryInput] = useState<string>("");
   const [imageUrlInput, setImageUrlInput] = useState<string | null>(null);
   const [isFetchingName, setIsFetchingName] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -28,9 +29,9 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 編集ダイアログ用ステート
-  const [editingItem, setEditingItem] = useState<{id: string, name: string, manufacturer: string} | null>(null);
+  const [editingItem, setEditingItem] = useState<{id: string, name: string, manufacturer: string, category: string} | null>(null);
 
-  const fetchProductInfo = async (janCode: string, retries = 2): Promise<{name: string, manufacturer: string, imageUrl: string | null} | null> => {
+  const fetchProductInfo = async (janCode: string, retries = 2): Promise<{name: string, manufacturer: string, category: string, imageUrl: string | null} | null> => {
     if (!clientId) return null;
     
     setApiError(null);
@@ -68,15 +69,15 @@ function App() {
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        // 並列リクエストで一番最初に成功したものを採用する
         const data = await Promise.any(proxies.map(p => fetchFromProxy(p)));
         
         if (data.hits && data.hits.length > 0) {
           setIsFetchingName(false);
           const item = data.hits[0];
           const manufacturer = item.brand?.name || "";
+          const category = item.category?.name || "";
           const imageUrl = item.image?.medium || item.image?.small || null;
-          return { name: item.name, manufacturer, imageUrl };
+          return { name: item.name, manufacturer, category, imageUrl };
         } else {
           setApiError("商品がデータベースに見つかりませんでした。");
           setIsFetchingName(false);
@@ -110,6 +111,7 @@ function App() {
       setOriginalQuantity(existingItem.quantity);
       setProductNameInput(existingItem.productName);
       setManufacturerInput(existingItem.manufacturerName || "");
+      setCategoryInput(existingItem.category || "");
       setImageUrlInput(existingItem.imageUrl || null);
       setQuantityInput(existingItem.quantity + 1);
     } else {
@@ -118,6 +120,7 @@ function App() {
       setQuantityInput(1);
       setProductNameInput("");
       setManufacturerInput("");
+      setCategoryInput("");
       setImageUrlInput(null);
       
       if (clientId) {
@@ -125,6 +128,7 @@ function App() {
         if (info) {
           setProductNameInput(info.name);
           setManufacturerInput(info.manufacturer);
+          setCategoryInput(info.category);
           setImageUrlInput(info.imageUrl);
           setIsApiFetched(true);
         }
@@ -139,6 +143,7 @@ function App() {
       janCode: scannedJan,
       productName: productNameInput || "名称未設定",
       manufacturerName: manufacturerInput,
+      category: categoryInput,
       imageUrl: imageUrlInput || undefined,
       quantity: quantityInput,
       userName: userName || "未設定",
@@ -148,6 +153,7 @@ function App() {
     setQuantityInput(1);
     setProductNameInput("");
     setManufacturerInput("");
+    setCategoryInput("");
     setImageUrlInput(null);
     setIsExistingItem(false);
     setOriginalQuantity(null);
@@ -161,6 +167,7 @@ function App() {
       setOriginalQuantity(null);
       setIsApiFetched(false);
       setImageUrlInput(null);
+      setCategoryInput("");
     }
   };
 
@@ -172,6 +179,7 @@ function App() {
           janCode: itemToUpdate.janCode,
           productName: editingItem.name,
           manufacturerName: editingItem.manufacturer,
+          category: editingItem.category,
           imageUrl: itemToUpdate.imageUrl,
           quantity: itemToUpdate.quantity,
           userName: itemToUpdate.userName
@@ -187,10 +195,10 @@ function App() {
       const input = window.prompt("CSVに出力する担当者名を入力してください。\n（※複数人で合算する際に必要になるため必須です）");
       if (input === null || input.trim() === "") {
         alert("エラー: 担当者名が入力されなかったため、CSV出力を中断しました。");
-        return; // キャンセルまたは空欄の場合は中断
+        return; 
       }
       exportUserName = input.trim();
-      setUserName(exportUserName); // 設定画面の担当者名にも反映
+      setUserName(exportUserName);
     }
     exportCSV(exportUserName);
   };
@@ -226,7 +234,9 @@ function App() {
 
   const filteredItems = items.filter(item => 
     item.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (item.manufacturerName || "").toLowerCase().includes(searchQuery.toLowerCase())
+    (item.manufacturerName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (item.category || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.janCode.includes(searchQuery)
   );
 
   return (
@@ -276,6 +286,19 @@ function App() {
                     <label>JANコード</label>
                     <input type="text" value={scannedJan} readOnly className="form-control readonly" />
                   </div>
+                </div>
+
+                <div className="form-group">
+                  <label>商品分類</label>
+                  <input 
+                    type="text" 
+                    value={categoryInput} 
+                    onChange={(e) => setCategoryInput(e.target.value)} 
+                    placeholder="手入力できます"
+                    className={`form-control ${isInputLocked ? 'readonly' : ''}`} 
+                    disabled={isFetchingName}
+                    readOnly={isInputLocked}
+                  />
                 </div>
 
                 <div className="form-group">
@@ -345,14 +368,23 @@ function App() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2>記録データ ({items.length}件)</h2>
               </div>
-              <div className="search-box">
+              <div className="search-box-container" style={{ position: 'relative' }}>
                 <input 
                   type="text" 
-                  placeholder="商品名・メーカー名で検索..." 
+                  placeholder="商品名・分類・JANなどで検索..." 
                   value={searchQuery} 
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="form-control"
+                  style={{ paddingRight: '40px' }}
                 />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery("")}
+                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '5px' }}
+                  >
+                    <X size={18} />
+                  </button>
+                )}
               </div>
             </div>
             
@@ -374,16 +406,21 @@ function App() {
                         )}
                       </div>
 
-                      {/* 右側のJANとメーカー */}
+                      {/* 右側のJANと分類・メーカー */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="item-jan" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
+                        <div className="item-jan" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
                           <span>{item.janCode}</span>
-                          <button className="btn-icon" onClick={() => setEditingItem({ id: item.id, name: item.productName, manufacturer: item.manufacturerName || "" })}>
+                          <button className="btn-icon" onClick={() => setEditingItem({ id: item.id, name: item.productName, manufacturer: item.manufacturerName || "", category: item.category || "" })}>
                             <Edit2 className="icon-small" style={{ color: 'var(--primary-color)' }} />
                           </button>
                         </div>
+                        {item.category && (
+                          <div className="item-category" style={{ fontSize: '0.8rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>
+                            [{item.category}]
+                          </div>
+                        )}
                         {item.manufacturerName && (
-                          <div className="item-manufacturer" style={{ fontSize: '0.9rem', color: 'var(--secondary-color)', fontWeight: 'bold' }}>
+                          <div className="item-manufacturer" style={{ fontSize: '0.9rem', color: 'var(--secondary-color)' }}>
                             {item.manufacturerName}
                           </div>
                         )}
@@ -391,7 +428,7 @@ function App() {
                     </div>
 
                     {/* 下段の商品名 */}
-                    <div className="item-name" style={{ fontSize: '1.1rem', wordBreak: 'break-all', borderTop: '1px dashed var(--border-color)', paddingTop: '0.5rem' }}>
+                    <div className="item-name" style={{ fontSize: '1.1rem', wordBreak: 'break-all', borderTop: '1px dashed var(--border-color)', paddingTop: '0.5rem', fontWeight: 'bold' }}>
                       {item.productName}
                     </div>
                     
@@ -544,6 +581,15 @@ function App() {
                 value={items.find(i => i.id === editingItem.id)?.janCode || ""} 
                 readOnly 
                 className="form-control readonly" 
+              />
+            </div>
+            <div className="form-group">
+              <label>商品分類</label>
+              <input 
+                type="text" 
+                value={editingItem.category} 
+                onChange={(e) => setEditingItem({...editingItem, category: e.target.value})} 
+                className="form-control"
               />
             </div>
             <div className="form-group">

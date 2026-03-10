@@ -39,6 +39,7 @@ export function useInventory() {
           ...updatedItems[existingIndex],
           productName: item.productName,
           manufacturerName: item.manufacturerName,
+          category: item.category,
           imageUrl: item.imageUrl,
           userName: item.userName,
           quantity: item.quantity,
@@ -77,7 +78,7 @@ export function useInventory() {
     if (items.length === 0) return;
     
     // Header
-    let csvContent = "JANコード,商品名,メーカー名,数量,スキャン日時,ユーザ名\n";
+    let csvContent = "JANコード,商品名,メーカー名,商品分類,数量,スキャン日時,ユーザ名\n";
     
     // Rows
     items.forEach((item) => {
@@ -85,8 +86,9 @@ export function useInventory() {
       // Escape commas and quotes for CSV
       const safeName = `"${item.productName.replace(/"/g, '""')}"`;
       const safeManufacturer = `"${(item.manufacturerName || '').replace(/"/g, '""')}"`;
+      const safeCategory = `"${(item.category || '').replace(/"/g, '""')}"`;
       const safeUserName = `"${(item.userName || currentUserName).replace(/"/g, '""')}"`;
-      csvContent += `${item.janCode},${safeName},${safeManufacturer},${item.quantity},${date},${safeUserName}\n`;
+      csvContent += `${item.janCode},${safeName},${safeManufacturer},${safeCategory},${item.quantity},${date},${safeUserName}\n`;
     });
 
     // Create a Blob and trigger download (BOM付きでExcelの文字化けを防ぐ)
@@ -132,15 +134,17 @@ export function useInventory() {
     for (let i = 1; i < lines.length; i++) {
       const parts = parseCSVLine(lines[i]);
       if (parts.length >= 4) {
-        const timestamp = parts[4] ? new Date(parts[4]).getTime() : Date.now();
+        // JAN, Name, Manufacturer, Category, Qty, Date, User
+        const timestamp = parts[5] ? new Date(parts[5]).getTime() : Date.now();
         newItems.push({
           id: crypto.randomUUID(),
           janCode: parts[0],
           productName: parts[1] || "名称未設定",
           manufacturerName: parts[2] || "",
-          quantity: parseInt(parts[3], 10) || 1,
+          category: parts[3] || "",
+          quantity: parseInt(parts[4], 10) || 1,
           scannedAt: isNaN(timestamp) ? Date.now() : timestamp,
-          userName: parts[5] || "",
+          userName: parts[6] || "",
         });
       }
     }
@@ -156,7 +160,6 @@ export function useInventory() {
             merged[existingIndex] = {
               ...merged[existingIndex],
               quantity: merged[existingIndex].quantity + newItem.quantity,
-              // Keep newer date or existing info
             };
             const [updated] = merged.splice(existingIndex, 1);
             merged.unshift(updated);
