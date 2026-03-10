@@ -3,7 +3,7 @@ import { useInventory } from './hooks/useInventory'
 import { useSettings } from './hooks/useSettings'
 import { Scanner } from './components/Scanner'
 import { ReloadPrompt } from './components/ReloadPrompt'
-import { Camera, List as ListIcon, Settings, Download, Trash2, Loader2 } from 'lucide-react'
+import { Camera, List as ListIcon, Settings, Download, Trash2, Loader2, Edit2 } from 'lucide-react'
 import './index.css'
 
 function App() {
@@ -20,6 +20,10 @@ function App() {
   const [isFetchingName, setIsFetchingName] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isExistingItem, setIsExistingItem] = useState<boolean>(false);
+  const [isApiFetched, setIsApiFetched] = useState<boolean>(false); // APIで情報取得できたか
+
+  // 編集ダイアログ用ステート
+  const [editingItem, setEditingItem] = useState<{id: string, name: string, manufacturer: string} | null>(null);
 
   const fetchProductInfo = async (janCode: string, retries = 2): Promise<{name: string, manufacturer: string} | null> => {
     if (!clientId) return null;
@@ -88,6 +92,7 @@ function App() {
     setIsScanning(false);
     setScannedJan(decodedText);
     setApiError(null);
+    setIsApiFetched(false);
     
     const existingItem = items.find(item => item.janCode === decodedText);
     
@@ -107,6 +112,7 @@ function App() {
         if (info) {
           setProductNameInput(info.name);
           setManufacturerInput(info.manufacturer);
+          setIsApiFetched(true);
         }
       }
     }
@@ -127,12 +133,33 @@ function App() {
     setProductNameInput("");
     setManufacturerInput("");
     setIsExistingItem(false);
+    setIsApiFetched(false);
   };
 
   const handleCancelScan = () => {
     setScannedJan(null);
     setIsExistingItem(false);
+    setIsApiFetched(false);
   };
+
+  const handleSaveEdit = () => {
+    if (editingItem) {
+      // itemsを直接書き換えるのではなく、addOrUpdateItemの仕組みを利用して更新する（janCodeが必要なので探す）
+      const itemToUpdate = items.find(i => i.id === editingItem.id);
+      if (itemToUpdate) {
+        addOrUpdateItem({
+          janCode: itemToUpdate.janCode,
+          productName: editingItem.name,
+          manufacturerName: editingItem.manufacturer,
+          quantity: itemToUpdate.quantity
+        });
+      }
+      setEditingItem(null);
+    }
+  };
+
+  // 入力をロックするかどうか（既存アイテム、またはAPIで取得できた場合はロック）
+  const isInputLocked = isExistingItem || isApiFetched;
 
   return (
     <div className="app-container">
@@ -165,11 +192,7 @@ function App() {
             ) : (
               <div className="input-form card">
                 <h3>商品登録 {isExistingItem ? <span className="badge badge-info">リスト登録済</span> : <span className="badge badge-success">新規</span>}</h3>
-                {isExistingItem && (
-                  <div className="alert alert-info">
-                    既存のリストから商品情報を復元しました。数量を +1 しています。
-                  </div>
-                )}
+                
                 <div className="form-group">
                   <label>JANコード</label>
                   <input type="text" value={scannedJan} readOnly className="form-control readonly" />
@@ -177,18 +200,19 @@ function App() {
                 <div className="form-group">
                   <label>商品名</label>
                   <div style={{ position: 'relative' }}>
-                    <input 
-                      type="text" 
+                    <textarea 
                       value={productNameInput} 
                       onChange={(e) => setProductNameInput(e.target.value)} 
-                      placeholder="手入力できます"
-                      className="form-control" 
+                      placeholder={isFetchingName ? "取得中..." : "手入力できます"}
+                      className={`form-control ${isInputLocked ? 'readonly' : ''}`} 
                       disabled={isFetchingName}
+                      readOnly={isInputLocked}
+                      rows={2}
+                      style={{ resize: 'none' }}
                     />
                     {isFetchingName && <Loader2 className="spinner" style={{ position: 'absolute', right: '10px', top: '10px', color: 'var(--primary-color)' }} />}
                   </div>
                   {apiError && <small style={{ color: 'red', display: 'block', marginTop: '4px' }}>{apiError}</small>}
-                  {!clientId && <small>※設定画面でAPIキーを登録すると自動取得できます</small>}
                 </div>
                 <div className="form-group">
                   <label>メーカー名 / ブランド</label>
@@ -197,22 +221,26 @@ function App() {
                     value={manufacturerInput} 
                     onChange={(e) => setManufacturerInput(e.target.value)} 
                     placeholder="手入力できます"
-                    className="form-control" 
+                    className={`form-control ${isInputLocked ? 'readonly' : ''}`} 
                     disabled={isFetchingName}
+                    readOnly={isInputLocked}
                   />
                 </div>
                 <div className="form-group">
-                  <label>数量</label>
-                  <div className="quantity-control-group">
+                  <label>
+                    数量 
+                    {isExistingItem && <span style={{ color: 'var(--primary-color)', fontSize: '0.85rem', marginLeft: '8px' }}>(+1 しました)</span>}
+                  </label>
+                  <div className="quantity-control-group large">
                     <button 
-                      className="btn btn-qty" 
+                      className="btn btn-qty btn-minus" 
                       onClick={() => setQuantityInput(prev => Math.max(1, prev - 1))}
                     >
                       -
                     </button>
-                    <div className="quantity-display">{quantityInput}</div>
+                    <div className="quantity-display large">{quantityInput}</div>
                     <button 
-                      className="btn btn-qty" 
+                      className="btn btn-qty btn-plus" 
                       onClick={() => setQuantityInput(prev => prev + 1)}
                     >
                       +
@@ -244,30 +272,39 @@ function App() {
                 {items.map(item => (
                   <li key={item.id} className="inventory-item card">
                     <div className="item-details">
-                      <div className="item-jan">{item.janCode}</div>
+                      <div className="item-jan" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>{item.janCode}</span>
+                        <button className="btn-icon" onClick={() => setEditingItem({ id: item.id, name: item.productName, manufacturer: item.manufacturerName || "" })}>
+                          <Edit2 className="icon-small" style={{ color: 'var(--primary-color)' }} />
+                        </button>
+                      </div>
                       <div className="item-name">{item.productName}</div>
                       {item.manufacturerName && <div className="item-manufacturer" style={{ fontSize: '0.85rem', color: 'var(--secondary-color)', marginTop: '4px' }}>{item.manufacturerName}</div>}
                     </div>
                     <div className="item-actions">
                       <div className="item-quantity">
                         <span className="qty-label">数量:</span>
-                        <div className="quantity-control-group small">
+                        <div className="quantity-control-group">
                           <button 
-                            className="btn btn-qty small" 
+                            className="btn btn-qty btn-minus small" 
                             onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
                           >
                             -
                           </button>
                           <div className="quantity-display small">{item.quantity}</div>
                           <button 
-                            className="btn btn-qty small" 
+                            className="btn btn-qty btn-plus small" 
                             onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           >
                             +
                           </button>
                         </div>
                       </div>
-                      <button className="btn-icon text-danger" onClick={() => removeItem(item.id)}>
+                      <button className="btn-icon text-danger" onClick={() => {
+                        if (window.confirm(`「${item.productName}」をリストから削除しますか？`)) {
+                          removeItem(item.id);
+                        }
+                      }}>
                         <Trash2 className="icon-small" />
                       </button>
                     </div>
@@ -302,16 +339,13 @@ function App() {
                 if ('serviceWorker' in navigator) {
                   navigator.serviceWorker.getRegistration().then(reg => {
                     if (reg) {
-                      // すでに新しいバージョンが待機中の場合は強制的に更新してリロードする
                       if (reg.waiting) {
                         reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-                        // 少し待ってからリロード
                         setTimeout(() => window.location.reload(), 500);
                         return;
                       }
 
                       reg.update().then(() => {
-                        // update後、すぐにwaitingになったかチェック
                         if (reg.waiting) {
                           reg.waiting.postMessage({ type: 'SKIP_WAITING' });
                           setTimeout(() => window.location.reload(), 500);
@@ -348,6 +382,37 @@ function App() {
           </div>
         )}
       </main>
+
+      {/* 編集用モーダルダイアログ */}
+      {editingItem && (
+        <div className="modal-overlay">
+          <div className="modal-content card">
+            <h3>商品情報の編集</h3>
+            <div className="form-group">
+              <label>商品名</label>
+              <textarea 
+                value={editingItem.name} 
+                onChange={(e) => setEditingItem({...editingItem, name: e.target.value})} 
+                className="form-control"
+                rows={2}
+              />
+            </div>
+            <div className="form-group">
+              <label>メーカー名 / ブランド</label>
+              <input 
+                type="text" 
+                value={editingItem.manufacturer} 
+                onChange={(e) => setEditingItem({...editingItem, manufacturer: e.target.value})} 
+                className="form-control"
+              />
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-secondary" onClick={() => setEditingItem(null)}>キャンセル</button>
+              <button className="btn btn-primary" onClick={handleSaveEdit}>保存</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <nav className="bottom-nav">
         <button className={`nav-btn ${activeTab === 'scan' ? 'active' : ''}`} onClick={() => setActiveTab('scan')}>

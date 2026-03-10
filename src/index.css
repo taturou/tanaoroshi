@@ -205,27 +205,55 @@ body {
   background-color: var(--card-bg);
 }
 
+.quantity-control-group.large {
+  margin-top: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-radius: 12px;
+}
+
 .quantity-control-group.small {
   border-radius: 4px;
 }
 
 .btn-qty {
-  background-color: #f1f3f5;
   border: none;
   font-size: 1.5rem;
   padding: 0.5rem 1rem;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, filter 0.1s;
   color: var(--text-color);
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  touch-action: none;
 }
 
-.btn-qty:hover, .btn-qty:active {
-  background-color: #e2e6ea;
+.quantity-control-group.large .btn-qty {
+  padding: 1.5rem 2rem;
+  font-size: 2rem;
+  width: 80px;
+}
+
+.btn-qty:active {
+  filter: brightness(0.9);
+}
+
+.btn-qty.btn-minus {
+  background-color: #ffb3ba;
+  color: #d32f2f;
+}
+
+.btn-qty.btn-plus {
+  background-color: #b8daff;
+  color: #0056b3;
 }
 
 .btn-qty.small {
   font-size: 1.2rem;
   padding: 0.2rem 0.6rem;
+  width: 40px;
 }
 
 .quantity-display {
@@ -238,10 +266,38 @@ body {
   padding: 0.5rem;
 }
 
+.quantity-display.large {
+  font-size: 2rem;
+  padding: 1rem;
+}
+
 .quantity-display.small {
   font-size: 1.1rem;
   padding: 0.2rem 0.5rem;
   min-width: 40px;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
+  margin-bottom: 0;
 }
 
 /* Badges and Alerts */
