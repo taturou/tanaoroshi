@@ -8,7 +8,7 @@ import './index.css'
 
 function App() {
   const { items, addOrUpdateItem, updateQuantity, removeItem, clearAll, exportCSV, importCSV } = useInventory();
-  const { clientId, setClientId, userName, setUserName } = useSettings();
+  const { clientId, setClientId, userName, setUserName, categories, addCategory } = useSettings();
   const [activeTab, setActiveTab] = useState<'scan' | 'list' | 'settings'>('scan');
   
   // スキャン中の状態管理
@@ -31,7 +31,7 @@ function App() {
   // 編集ダイアログ用ステート
   const [editingItem, setEditingItem] = useState<{id: string, name: string, manufacturer: string, category: string} | null>(null);
 
-  const fetchProductInfo = async (janCode: string, retries = 2): Promise<{name: string, manufacturer: string, category: string, imageUrl: string | null} | null> => {
+  const fetchProductInfo = async (janCode: string, retries = 2): Promise<{name: string, manufacturer: string, imageUrl: string | null} | null> => {
     if (!clientId) return null;
     
     setApiError(null);
@@ -75,10 +75,8 @@ function App() {
           setIsFetchingName(false);
           const item = data.hits[0];
           const manufacturer = item.brand?.name || "";
-          // カテゴリ取得を強化（genre_categoryも確認）
-          const category = item.genre_category?.name || item.category?.name || "";
           const imageUrl = item.image?.medium || item.image?.small || null;
-          return { name: item.name, manufacturer, category, imageUrl };
+          return { name: item.name, manufacturer, imageUrl };
         } else {
           setApiError("商品がデータベースに見つかりませんでした。");
           setIsFetchingName(false);
@@ -129,7 +127,6 @@ function App() {
         if (info) {
           setProductNameInput(info.name);
           setManufacturerInput(info.manufacturer);
-          setCategoryInput(info.category);
           setImageUrlInput(info.imageUrl);
           setIsApiFetched(true);
         }
@@ -231,6 +228,22 @@ function App() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleAddNewCategory = () => {
+    const newCat = window.prompt("新しい分類タグ名を入力してください。");
+    if (newCat && newCat.trim()) {
+      addCategory(newCat.trim());
+      setCategoryInput(newCat.trim());
+    }
+  };
+
+  const handleEditAddNewCategory = () => {
+    const newCat = window.prompt("新しい分類タグ名を入力してください。");
+    if (newCat && newCat.trim() && editingItem) {
+      addCategory(newCat.trim());
+      setEditingItem({...editingItem, category: newCat.trim()});
+    }
+  };
+
   const isInputLocked = isExistingItem || isApiFetched;
 
   const filteredItems = items.filter(item => 
@@ -291,15 +304,18 @@ function App() {
 
                 <div className="form-group">
                   <label>商品分類</label>
-                  <input 
-                    type="text" 
-                    value={categoryInput} 
-                    onChange={(e) => setCategoryInput(e.target.value)} 
-                    placeholder="手入力できます"
-                    className={`form-control ${(isInputLocked && categoryInput) ? 'readonly' : ''}`} 
-                    disabled={isFetchingName}
-                    readOnly={!!(isInputLocked && categoryInput)}
-                  />
+                  <div className="category-tags-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    {categories.map(cat => (
+                      <button 
+                        key={cat} 
+                        className={`tag-btn ${categoryInput === cat ? 'active' : ''}`}
+                        onClick={() => setCategoryInput(cat)}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                    <button className="tag-btn add-btn" onClick={handleAddNewCategory}>+ 新規</button>
+                  </div>
                 </div>
 
                 <div className="form-group">
@@ -586,12 +602,18 @@ function App() {
             </div>
             <div className="form-group">
               <label>商品分類</label>
-              <input 
-                type="text" 
-                value={editingItem.category} 
-                onChange={(e) => setEditingItem({...editingItem, category: e.target.value})} 
-                className="form-control"
-              />
+              <div className="category-tags-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                {categories.map(cat => (
+                  <button 
+                    key={cat} 
+                    className={`tag-btn ${editingItem.category === cat ? 'active' : ''}`}
+                    onClick={() => setEditingItem({...editingItem, category: cat})}
+                  >
+                    {cat}
+                  </button>
+                ))}
+                <button className="tag-btn add-btn" onClick={handleEditAddNewCategory}>+ 新規</button>
+              </div>
             </div>
             <div className="form-group">
               <label>メーカー名 / ブランド</label>

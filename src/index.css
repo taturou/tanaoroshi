@@ -286,6 +286,40 @@ input, textarea, [contenteditable="true"] {
   min-width: 40px;
 }
 
+/* Category Tags */
+.category-tags-container {
+  padding: 4px 0;
+}
+
+.tag-btn {
+  background-color: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tag-btn.active {
+  background-color: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 4px rgba(0,123,255,0.3);
+}
+
+.tag-btn.add-btn {
+  border-style: dashed;
+  background-color: transparent;
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.tag-btn:active {
+  transform: scale(0.95);
+}
+
 /* Modal Overlay */
 .modal-overlay {
   position: fixed;
