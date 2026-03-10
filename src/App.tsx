@@ -228,6 +228,31 @@ function App() {
             </div>
 
             <hr />
+            <div className="form-group">
+              <h3>アプリの更新</h3>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>新しいバージョンが配信されているか手動で確認します。</p>
+              <button className="btn btn-outline" onClick={() => {
+                if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.getRegistration().then(reg => {
+                    if (reg) {
+                      reg.update().then(() => {
+                        alert("更新のチェックが完了しました。新しいバージョンがある場合は画面下部に通知が表示されます。");
+                      }).catch(err => {
+                        alert("更新チェックに失敗しました: " + err);
+                      });
+                    } else {
+                      alert("Service Workerが登録されていません。（PWAとしてインストールされていない可能性があります）");
+                    }
+                  });
+                } else {
+                  alert("お使いのブラウザは更新チェックに対応していません。");
+                }
+              }}>
+                最新バージョンをチェック
+              </button>
+            </div>
+
+            <hr />
             <div className="danger-zone">
               <h3>データクリア</h3>
               <p>保存されているすべてのデータを削除します。</p>
