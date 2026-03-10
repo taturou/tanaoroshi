@@ -14,11 +14,12 @@ function App() {
   // スキャン中の状態管理
   const [isScanning, setIsScanning] = useState(false);
   const [scannedJan, setScannedJan] = useState<string | null>(null);
-  const [quantityInput, setQuantityInput] = useState<string>("1");
+  const [quantityInput, setQuantityInput] = useState<number>(1);
   const [productNameInput, setProductNameInput] = useState<string>("");
   const [manufacturerInput, setManufacturerInput] = useState<string>("");
   const [isFetchingName, setIsFetchingName] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [isExistingItem, setIsExistingItem] = useState<boolean>(false);
 
   const fetchProductInfo = async (janCode: string, retries = 2): Promise<{name: string, manufacturer: string} | null> => {
     if (!clientId) return null;
@@ -60,8 +61,6 @@ function App() {
           if (data.hits && data.hits.length > 0) {
             setIsFetchingName(false);
             const item = data.hits[0];
-            // Yahoo API ではブランド名(brand.name)や販売ストア名などが取れる。
-            // もしbrandオブジェクトがあればそれをメーカー名として扱う。
             const manufacturer = item.brand?.name || "";
             return { name: item.name, manufacturer };
           } else {
@@ -90,15 +89,16 @@ function App() {
     setScannedJan(decodedText);
     setApiError(null);
     
-    // 既にリストに存在するかチェック
     const existingItem = items.find(item => item.janCode === decodedText);
     
     if (existingItem) {
+      setIsExistingItem(true);
       setProductNameInput(existingItem.productName);
       setManufacturerInput(existingItem.manufacturerName || "");
-      setQuantityInput((existingItem.quantity + 1).toString());
+      setQuantityInput(existingItem.quantity + 1);
     } else {
-      setQuantityInput("1");
+      setIsExistingItem(false);
+      setQuantityInput(1);
       setProductNameInput("");
       setManufacturerInput("");
       
@@ -119,17 +119,19 @@ function App() {
       janCode: scannedJan,
       productName: productNameInput || "名称未設定",
       manufacturerName: manufacturerInput,
-      quantity: parseInt(quantityInput, 10) || 1,
+      quantity: quantityInput,
     });
     
     setScannedJan(null);
-    setQuantityInput("1");
+    setQuantityInput(1);
     setProductNameInput("");
     setManufacturerInput("");
+    setIsExistingItem(false);
   };
 
   const handleCancelScan = () => {
     setScannedJan(null);
+    setIsExistingItem(false);
   };
 
   return (
@@ -162,7 +164,12 @@ function App() {
               </div>
             ) : (
               <div className="input-form card">
-                <h3>商品登録</h3>
+                <h3>商品登録 {isExistingItem ? <span className="badge badge-info">リスト登録済</span> : <span className="badge badge-success">新規</span>}</h3>
+                {isExistingItem && (
+                  <div className="alert alert-info">
+                    既存のリストから商品情報を復元しました。数量を +1 しています。
+                  </div>
+                )}
                 <div className="form-group">
                   <label>JANコード</label>
                   <input type="text" value={scannedJan} readOnly className="form-control readonly" />
@@ -196,17 +203,25 @@ function App() {
                 </div>
                 <div className="form-group">
                   <label>数量</label>
-                  <input 
-                    type="number" 
-                    min="1"
-                    value={quantityInput} 
-                    onChange={(e) => setQuantityInput(e.target.value)} 
-                    className="form-control quantity-input" 
-                  />
+                  <div className="quantity-control-group">
+                    <button 
+                      className="btn btn-qty" 
+                      onClick={() => setQuantityInput(prev => Math.max(1, prev - 1))}
+                    >
+                      -
+                    </button>
+                    <div className="quantity-display">{quantityInput}</div>
+                    <button 
+                      className="btn btn-qty" 
+                      onClick={() => setQuantityInput(prev => prev + 1)}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
                 <div className="form-actions">
                   <button className="btn btn-secondary" onClick={handleCancelScan}>キャンセル</button>
-                  <button className="btn btn-primary" onClick={handleSaveScannedItem} disabled={isFetchingName}>保存する</button>
+                  <button className="btn btn-primary" onClick={handleSaveScannedItem} disabled={isFetchingName}>{isExistingItem ? "上書き保存する" : "保存する"}</button>
                 </div>
               </div>
             )}
@@ -236,13 +251,21 @@ function App() {
                     <div className="item-actions">
                       <div className="item-quantity">
                         <span className="qty-label">数量:</span>
-                        <input 
-                          type="number" 
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => updateQuantity(item.id, parseInt(e.target.value, 10) || 1)}
-                          className="qty-edit-input"
-                        />
+                        <div className="quantity-control-group small">
+                          <button 
+                            className="btn btn-qty small" 
+                            onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                          >
+                            -
+                          </button>
+                          <div className="quantity-display small">{item.quantity}</div>
+                          <button 
+                            className="btn btn-qty small" 
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
                       <button className="btn-icon text-danger" onClick={() => removeItem(item.id)}>
                         <Trash2 className="icon-small" />
