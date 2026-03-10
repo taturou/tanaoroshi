@@ -17,26 +17,51 @@ function App() {
   const [quantityInput, setQuantityInput] = useState<string>("1");
   const [productNameInput, setProductNameInput] = useState<string>("");
   const [isFetchingName, setIsFetchingName] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const fetchProductName = async (janCode: string) => {
     if (!clientId) return "";
     
+    setApiError(null);
     try {
       setIsFetchingName(true);
       // Yahoo Shopping API (CORS制限を回避するために allorigins プロキシを経由)
       const targetUrl = encodeURIComponent(`https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`);
-      const proxyUrl = `https://api.allorigins.win/raw?url=${targetUrl}`;
+      const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}`;
       
       const response = await fetch(proxyUrl);
       
-      if (!response.ok) throw new Error("API request failed");
-      
-      const data = await response.json();
-      if (data.hits && data.hits.length > 0) {
-        return data.hits[0].name;
+      if (!response.ok) {
+        setApiError(`HTTP Error: ${response.status}`);
+        return "";
       }
-    } catch (error) {
+      
+      const proxyData = await response.json();
+      
+      // allorigins は実際のレスポンスを .contents に文字列として格納して返す
+      if (proxyData.contents) {
+        const data = JSON.parse(proxyData.contents);
+        
+        // Yahoo API のエラーレスポンス確認
+        if (data.Error) {
+           setApiError(`API Error: ${data.Error.Message}`);
+           return "";
+        }
+
+        if (data.hits && data.hits.length > 0) {
+          return data.hits[0].name;
+        } else {
+          setApiError("商品がデータベースに見つかりませんでした。");
+          return "";
+        }
+      } else {
+        setApiError("プロキシからの不正なレスポンス形式です。");
+        return "";
+      }
+
+    } catch (error: any) {
       console.error("Failed to fetch product name:", error);
+      setApiError(`通信エラー: ${error.message || 'Unknown error'}`);
     } finally {
       setIsFetchingName(false);
     }
@@ -123,6 +148,7 @@ function App() {
                     />
                     {isFetchingName && <Loader2 className="spinner" style={{ position: 'absolute', right: '10px', top: '10px', color: 'var(--primary-color)' }} />}
                   </div>
+                  {apiError && <small style={{ color: 'red', display: 'block', marginTop: '4px' }}>{apiError}</small>}
                   {!clientId && <small>※設定画面でAPIキーを登録すると自動取得できます</small>}
                 </div>
                 <div className="form-group">
