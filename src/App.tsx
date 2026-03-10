@@ -170,12 +170,14 @@ function App() {
 
   const handleExportCSV = () => {
     let exportUserName = userName;
-    if (!exportUserName) {
-      const input = window.prompt("CSVに出力する担当者名を入力してください。");
-      if (input !== null && input.trim() !== "") {
-        exportUserName = input.trim();
-        setUserName(exportUserName); // ついでに設定にも保存
+    if (!exportUserName || exportUserName.trim() === "") {
+      const input = window.prompt("CSVに出力する担当者名を入力してください。\n（※複数人で合算する際に必要になるため必須です）");
+      if (input === null || input.trim() === "") {
+        alert("エラー: 担当者名が入力されなかったため、CSV出力を中断しました。");
+        return; // キャンセルまたは空欄の場合は中断
       }
+      exportUserName = input.trim();
+      setUserName(exportUserName); // 設定画面の担当者名にも反映
     }
     exportCSV(exportUserName);
   };
