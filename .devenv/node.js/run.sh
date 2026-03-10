@@ -43,3 +43,5 @@ fi
 if [ "$current" != "$target" ] && [ "v$current" != "$target" ] && [ "$current" != "$resolved" ]; then
   nvm use --silent "$target" >/dev/null
 fi
+
+export PATH="$PWD/node_modules/.bin:$PATH"
