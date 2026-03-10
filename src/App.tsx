@@ -273,6 +273,19 @@ function App() {
                 </div>
 
                 <div className="form-group">
+                  <label>メーカー名 / ブランド</label>
+                  <input 
+                    type="text" 
+                    value={manufacturerInput} 
+                    onChange={(e) => setManufacturerInput(e.target.value)} 
+                    placeholder="手入力できます"
+                    className={`form-control ${isInputLocked ? 'readonly' : ''}`} 
+                    disabled={isFetchingName}
+                    readOnly={isInputLocked}
+                  />
+                </div>
+
+                <div className="form-group">
                   <label>商品名</label>
                   <div style={{ position: 'relative' }}>
                     <textarea 
@@ -289,18 +302,7 @@ function App() {
                   </div>
                   {apiError && <small style={{ color: 'red', display: 'block', marginTop: '4px' }}>{apiError}</small>}
                 </div>
-                <div className="form-group">
-                  <label>メーカー名 / ブランド</label>
-                  <input 
-                    type="text" 
-                    value={manufacturerInput} 
-                    onChange={(e) => setManufacturerInput(e.target.value)} 
-                    placeholder="手入力できます"
-                    className={`form-control ${isInputLocked ? 'readonly' : ''}`} 
-                    disabled={isFetchingName}
-                    readOnly={isInputLocked}
-                  />
-                </div>
+
                 <div className="form-group">
                   <label>
                     数量 
@@ -342,60 +344,64 @@ function App() {
             ) : (
               <ul className="inventory-list">
                 {items.map(item => (
-                  <li key={item.id} className="inventory-item card" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                    {/* 左側の画像エリア */}
-                    <div className="item-image" style={{ width: '60px', height: '60px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '6px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', marginTop: '4px' }}>
-                      {item.imageUrl ? (
-                        <img src={item.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} loading="lazy" />
-                      ) : (
-                        <ImageIcon className="icon-small" style={{ color: '#adb5bd' }} />
-                      )}
-                    </div>
+                  <li key={item.id} className="inventory-item card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                      {/* 左側の画像エリア */}
+                      <div className="item-image" style={{ width: '60px', height: '60px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '6px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} loading="lazy" />
+                        ) : (
+                          <ImageIcon className="icon-small" style={{ color: '#adb5bd' }} />
+                        )}
+                      </div>
 
-                    {/* 右側の詳細エリア（元の縦並びデザインを維持） */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="item-details" style={{ marginBottom: '0.5rem' }}>
-                        <div className="item-jan" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      {/* 右側のJANとメーカー */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="item-jan" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
                           <span>{item.janCode}</span>
                           <button className="btn-icon" onClick={() => setEditingItem({ id: item.id, name: item.productName, manufacturer: item.manufacturerName || "" })}>
                             <Edit2 className="icon-small" style={{ color: 'var(--primary-color)' }} />
                           </button>
                         </div>
-                        <div className="item-name" style={{ fontWeight: 'bold', fontSize: '1.1rem', wordBreak: 'break-all' }}>{item.productName}</div>
                         {item.manufacturerName && (
-                          <div className="item-manufacturer" style={{ fontSize: '0.85rem', color: 'var(--secondary-color)', marginTop: '2px' }}>
+                          <div className="item-manufacturer" style={{ fontSize: '0.9rem', color: 'var(--secondary-color)', fontWeight: 'bold' }}>
                             {item.manufacturerName}
                           </div>
                         )}
                       </div>
-                      
-                      <div className="item-actions">
-                        <div className="item-quantity">
-                          <span className="qty-label">数量:</span>
-                          <div className="quantity-control-group small">
-                            <button 
-                              className="btn btn-qty btn-minus small" 
-                              onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                            >
-                              -
-                            </button>
-                            <div className="quantity-display small">{item.quantity}</div>
-                            <button 
-                              className="btn btn-qty btn-plus small" 
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            >
-                              +
-                            </button>
-                          </div>
+                    </div>
+
+                    {/* 下段の商品名 */}
+                    <div className="item-name" style={{ fontSize: '1.1rem', wordBreak: 'break-all', borderTop: '1px dashed var(--border-color)', paddingTop: '0.5rem' }}>
+                      {item.productName}
+                    </div>
+                    
+                    <div className="item-actions">
+                      <div className="item-quantity">
+                        <span className="qty-label">数量:</span>
+                        <div className="quantity-control-group small">
+                          <button 
+                            className="btn btn-qty btn-minus small" 
+                            onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                          >
+                            -
+                          </button>
+                          <div className="quantity-display small">{item.quantity}</div>
+                          <button 
+                            className="btn btn-qty btn-plus small" 
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          >
+                            +
+                          </button>
                         </div>
-                        <button className="btn-icon text-danger" onClick={() => {
-                          if (window.confirm(`「${item.productName}」をリストから削除しますか？`)) {
-                            removeItem(item.id);
-                          }
-                        }}>
-                          <Trash2 className="icon-small" />
-                        </button>
                       </div>
+                      <button className="btn-icon text-danger" onClick={() => {
+                        if (window.confirm(`「${item.productName}」をリストから削除しますか？`)) {
+                          removeItem(item.id);
+                        }
+                      }}>
+                        <Trash2 className="icon-small" />
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -513,12 +519,12 @@ function App() {
           <div className="modal-content card">
             <h3>商品情報の編集</h3>
             <div className="form-group">
-              <label>商品名</label>
-              <textarea 
-                value={editingItem.name} 
-                onChange={(e) => setEditingItem({...editingItem, name: e.target.value})} 
-                className="form-control"
-                rows={2}
+              <label>JANコード</label>
+              <input 
+                type="text" 
+                value={items.find(i => i.id === editingItem.id)?.janCode || ""} 
+                readOnly 
+                className="form-control readonly" 
               />
             </div>
             <div className="form-group">
@@ -528,6 +534,15 @@ function App() {
                 value={editingItem.manufacturer} 
                 onChange={(e) => setEditingItem({...editingItem, manufacturer: e.target.value})} 
                 className="form-control"
+              />
+            </div>
+            <div className="form-group">
+              <label>商品名</label>
+              <textarea 
+                value={editingItem.name} 
+                onChange={(e) => setEditingItem({...editingItem, name: e.target.value})} 
+                className="form-control"
+                rows={2}
               />
             </div>
             <div className="form-actions">
