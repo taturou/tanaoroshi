@@ -23,6 +23,7 @@ function App() {
   const [isExistingItem, setIsExistingItem] = useState<boolean>(false);
   const [originalQuantity, setOriginalQuantity] = useState<number | null>(null);
   const [isApiFetched, setIsApiFetched] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -223,6 +224,11 @@ function App() {
 
   const isInputLocked = isExistingItem || isApiFetched;
 
+  const filteredItems = items.filter(item => 
+    item.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (item.manufacturerName || "").toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="app-container">
       <ReloadPrompt />
@@ -335,15 +341,28 @@ function App() {
 
         {activeTab === 'list' && (
           <div className="list-section">
-            <div className="list-header">
-              <h2>記録データ ({items.length}件)</h2>
+            <div className="list-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2>記録データ ({items.length}件)</h2>
+              </div>
+              <div className="search-box">
+                <input 
+                  type="text" 
+                  placeholder="商品名・メーカー名で検索..." 
+                  value={searchQuery} 
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="form-control"
+                />
+              </div>
             </div>
             
             {items.length === 0 ? (
               <p className="empty-state">データがありません</p>
+            ) : filteredItems.length === 0 ? (
+              <p className="empty-state">検索結果が見つかりません</p>
             ) : (
               <ul className="inventory-list">
-                {items.map(item => (
+                {filteredItems.map(item => (
                   <li key={item.id} className="inventory-item card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                       {/* 左側の画像エリア */}
