@@ -262,8 +262,22 @@ function App() {
                 if ('serviceWorker' in navigator) {
                   navigator.serviceWorker.getRegistration().then(reg => {
                     if (reg) {
+                      // すでに新しいバージョンが待機中の場合は強制的に更新してリロードする
+                      if (reg.waiting) {
+                        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                        // 少し待ってからリロード
+                        setTimeout(() => window.location.reload(), 500);
+                        return;
+                      }
+
                       reg.update().then(() => {
-                        alert("更新のチェックが完了しました。新しいバージョンがある場合は画面下部に通知が表示されます。");
+                        // update後、すぐにwaitingになったかチェック
+                        if (reg.waiting) {
+                          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                          setTimeout(() => window.location.reload(), 500);
+                        } else {
+                          alert("更新のチェックが完了しました。新しいバージョンがある場合は画面下部に通知が表示されます。");
+                        }
                       }).catch(err => {
                         alert("更新チェックに失敗しました: " + err);
                       });
