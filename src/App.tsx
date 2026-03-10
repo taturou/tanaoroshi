@@ -42,46 +42,49 @@ function App() {
       `https://corsproxy.io/?url=${targetUrl}`
     ];
 
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      for (const proxyUrl of proxies) {
-        try {
-          const response = await fetch(proxyUrl);
-          
-          if (!response.ok) {
-            throw new Error(`HTTP Error: ${response.status}`);
-          }
-          
-          let data;
-          if (proxyUrl.includes('allorigins')) {
-            const proxyData = await response.json();
-            if (!proxyData.contents) throw new Error("Invalid allorigins response");
-            data = JSON.parse(proxyData.contents);
-          } else {
-            data = await response.json();
-          }
-          
-          if (data.Error) {
-             setApiError(`API Error: ${data.Error.Message}`);
-             setIsFetchingName(false);
-             return null;
-          }
+    const fetchFromProxy = async (proxyUrl: string) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      try {
+        const response = await fetch(proxyUrl, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        
+        let data;
+        if (proxyUrl.includes('allorigins')) {
+          const proxyData = await response.json();
+          if (!proxyData.contents) throw new Error("Invalid allorigins response");
+          data = JSON.parse(proxyData.contents);
+        } else {
+          data = await response.json();
+        }
+        
+        if (data.Error) throw new Error(`API Error: ${data.Error.Message}`);
+        return data;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
 
-          if (data.hits && data.hits.length > 0) {
-            setIsFetchingName(false);
-            const item = data.hits[0];
-            const manufacturer = item.brand?.name || "";
-            const imageUrl = item.image?.medium || item.image?.small || null;
-            return { name: item.name, manufacturer, imageUrl };
-          } else {
-            setApiError("商品がデータベースに見つかりませんでした。");
-            setIsFetchingName(false);
-            return null;
-          }
-        } catch (error: any) {
-          console.error(`Attempt ${attempt + 1} with ${proxyUrl} failed:`, error);
-          if (attempt === retries && proxyUrl === proxies[proxies.length - 1]) {
-            setApiError(`通信エラー: プロキシサーバーが応答しません。手入力してください。`);
-          }
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        // 並列リクエストで一番最初に成功したものを採用する
+        const data = await Promise.any(proxies.map(p => fetchFromProxy(p)));
+        
+        if (data.hits && data.hits.length > 0) {
+          setIsFetchingName(false);
+          const item = data.hits[0];
+          const manufacturer = item.brand?.name || "";
+          const imageUrl = item.image?.medium || item.image?.small || null;
+          return { name: item.name, manufacturer, imageUrl };
+        } else {
+          setApiError("商品がデータベースに見つかりませんでした。");
+          setIsFetchingName(false);
+          return null;
+        }
+      } catch (error: any) {
+        console.error(`Attempt ${attempt + 1} failed:`, error);
+        if (attempt === retries) {
+          setApiError(`通信エラー: プロキシサーバーが応答しません。手入力してください。`);
         }
       }
       if (attempt < retries) {
