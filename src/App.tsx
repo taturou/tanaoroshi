@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useInventory } from './hooks/useInventory'
+import { useSettings } from './hooks/useSettings'
 import { Scanner } from './components/Scanner'
-import { Camera, List as ListIcon, Settings, Download, Trash2 } from 'lucide-react'
+import { Camera, List as ListIcon, Settings, Download, Trash2, Loader2 } from 'lucide-react'
 import './index.css'
 
 function App() {
   const { items, addItem, updateQuantity, removeItem, clearAll, exportCSV } = useInventory();
+  const { clientId, setClientId } = useSettings();
   const [activeTab, setActiveTab] = useState<'scan' | 'list' | 'settings'>('scan');
   
   // スキャン中の状態管理
@@ -13,13 +15,43 @@ function App() {
   const [scannedJan, setScannedJan] = useState<string | null>(null);
   const [quantityInput, setQuantityInput] = useState<string>("1");
   const [productNameInput, setProductNameInput] = useState<string>("");
+  const [isFetchingName, setIsFetchingName] = useState(false);
 
-  const handleScan = (decodedText: string) => {
-    // 連続スキャンを防ぐためスキャンを一時停止し、入力フォームを表示
+  const fetchProductName = async (janCode: string) => {
+    if (!clientId) return "";
+    
+    try {
+      setIsFetchingName(true);
+      // Yahoo Shopping API (※ブラウザからの直接呼び出しはCORS制限によりエラーになる場合があります。その場合は手入力にフォールバックします)
+      const url = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) throw new Error("API request failed");
+      
+      const data = await response.json();
+      if (data.hits && data.hits.length > 0) {
+        return data.hits[0].name;
+      }
+    } catch (error) {
+      console.error("Failed to fetch product name:", error);
+    } finally {
+      setIsFetchingName(false);
+    }
+    return "";
+  };
+
+  const handleScan = async (decodedText: string) => {
     setIsScanning(false);
     setScannedJan(decodedText);
     setQuantityInput("1");
-    setProductNameInput(""); // Phase 3のAPI自動取得前は手入力
+    setProductNameInput("");
+    
+    if (clientId) {
+      const name = await fetchProductName(decodedText);
+      if (name) {
+        setProductNameInput(name);
+      }
+    }
   };
 
   const handleSaveScannedItem = () => {
@@ -31,7 +63,6 @@ function App() {
       quantity: parseInt(quantityInput, 10) || 1,
     });
     
-    // リセットしてスキャン再開待ちへ
     setScannedJan(null);
     setQuantityInput("1");
     setProductNameInput("");
@@ -77,14 +108,18 @@ function App() {
                 </div>
                 <div className="form-group">
                   <label>商品名</label>
-                  <input 
-                    type="text" 
-                    value={productNameInput} 
-                    onChange={(e) => setProductNameInput(e.target.value)} 
-                    placeholder="手入力できます"
-                    className="form-control" 
-                  />
-                  <small>※API自動取得はPhase 3で実装</small>
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      type="text" 
+                      value={productNameInput} 
+                      onChange={(e) => setProductNameInput(e.target.value)} 
+                      placeholder="手入力できます"
+                      className="form-control" 
+                      disabled={isFetchingName}
+                    />
+                    {isFetchingName && <Loader2 className="spinner" style={{ position: 'absolute', right: '10px', top: '10px', color: 'var(--primary-color)' }} />}
+                  </div>
+                  {!clientId && <small>※設定画面でAPIキーを登録すると自動取得できます</small>}
                 </div>
                 <div className="form-group">
                   <label>数量</label>
@@ -98,7 +133,7 @@ function App() {
                 </div>
                 <div className="form-actions">
                   <button className="btn btn-secondary" onClick={handleCancelScan}>キャンセル</button>
-                  <button className="btn btn-primary" onClick={handleSaveScannedItem}>保存する</button>
+                  <button className="btn btn-primary" onClick={handleSaveScannedItem} disabled={isFetchingName}>保存する</button>
                 </div>
               </div>
             )}
@@ -149,7 +184,19 @@ function App() {
         {activeTab === 'settings' && (
           <div className="settings-section card">
             <h2>設定</h2>
-            <p>APIキーの設定などはPhase 3で実装します。</p>
+            
+            <div className="form-group">
+              <label>Yahoo!ショッピングAPI Client ID</label>
+              <input 
+                type="text" 
+                value={clientId} 
+                onChange={(e) => setClientId(e.target.value)} 
+                placeholder="Client ID を入力してください"
+                className="form-control" 
+              />
+              <small>※ 登録するとJANコードから商品名を自動取得します。<br/>(※外部API仕様によりブラウザから直接呼べない場合は自動取得されません)</small>
+            </div>
+
             <hr />
             <div className="danger-zone">
               <h3>データクリア</h3>
