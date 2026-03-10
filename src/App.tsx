@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useInventory } from './hooks/useInventory'
 import { useSettings } from './hooks/useSettings'
 import { Scanner } from './components/Scanner'
+import { ReloadPrompt } from './components/ReloadPrompt'
 import { Camera, List as ListIcon, Settings, Download, Trash2, Loader2 } from 'lucide-react'
 import './index.css'
 
@@ -22,7 +23,7 @@ function App() {
     
     try {
       setIsFetchingName(true);
-      // Yahoo Shopping API (※ブラウザからの直接呼び出しはCORS制限によりエラーになる場合があります。その場合は手入力にフォールバックします)
+      // Yahoo Shopping API
       const url = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`;
       const response = await fetch(url);
       
@@ -74,6 +75,7 @@ function App() {
 
   return (
     <div className="app-container">
+      <ReloadPrompt />
       <header className="app-header">
         <h1>棚卸しアプリ</h1>
       </header>

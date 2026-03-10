@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt', // 更新があったら自動で裏で読み込まず、UIで通知を出してから更新させる
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
         name: '棚卸しアプリ',
