@@ -141,10 +141,12 @@ function App() {
   };
 
   const handleCancelScan = () => {
-    setScannedJan(null);
-    setIsExistingItem(false);
-    setOriginalQuantity(null);
-    setIsApiFetched(false);
+    if (window.confirm("スキャンした情報を破棄してキャンセルしますか？")) {
+      setScannedJan(null);
+      setIsExistingItem(false);
+      setOriginalQuantity(null);
+      setIsApiFetched(false);
+    }
   };
 
   const handleSaveEdit = () => {
@@ -252,9 +254,9 @@ function App() {
                     </button>
                   </div>
                 </div>
-                <div className="form-actions">
-                  <button className="btn btn-secondary" onClick={handleCancelScan}>キャンセル</button>
-                  <button className="btn btn-primary" onClick={handleSaveScannedItem} disabled={isFetchingName}>{isExistingItem ? "上書き保存する" : "保存する"}</button>
+                <div className="form-actions large-actions">
+                  <button className="btn btn-secondary btn-large" onClick={handleCancelScan}>キャンセル</button>
+                  <button className="btn btn-primary btn-large" onClick={handleSaveScannedItem} disabled={isFetchingName}>{isExistingItem ? "上書き保存する" : "保存する"}</button>
                 </div>
               </div>
             )}

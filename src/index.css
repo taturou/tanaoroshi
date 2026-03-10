@@ -353,8 +353,18 @@ input, textarea, [contenteditable="true"] {
   margin-top: 1.5rem;
 }
 
+.form-actions.large-actions {
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
 .form-actions .btn {
   flex: 1;
+}
+
+.form-actions.large-actions .btn {
+  padding: 1.25rem;
+  font-size: 1.15rem;
 }
 
 /* Scanner Section */
