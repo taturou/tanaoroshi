@@ -38,6 +38,7 @@ export function useInventory() {
         updatedItems[existingIndex] = {
           ...updatedItems[existingIndex],
           productName: item.productName,
+          manufacturerName: item.manufacturerName,
           quantity: item.quantity,
           scannedAt: Date.now(),
         };
@@ -74,14 +75,15 @@ export function useInventory() {
     if (items.length === 0) return;
     
     // Header
-    let csvContent = "JANコード,商品名,数量,スキャン日時\n";
+    let csvContent = "JANコード,商品名,メーカー名,数量,スキャン日時\n";
     
     // Rows
     items.forEach((item) => {
       const date = new Date(item.scannedAt).toLocaleString('ja-JP');
       // Escape commas and quotes for CSV
       const safeName = `"${item.productName.replace(/"/g, '""')}"`;
-      csvContent += `${item.janCode},${safeName},${item.quantity},${date}\n`;
+      const safeManufacturer = `"${(item.manufacturerName || '').replace(/"/g, '""')}"`;
+      csvContent += `${item.janCode},${safeName},${safeManufacturer},${item.quantity},${date}\n`;
     });
 
     // Create a Blob and trigger download (BOM付きでExcelの文字化けを防ぐ)

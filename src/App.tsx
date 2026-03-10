@@ -16,18 +16,18 @@ function App() {
   const [scannedJan, setScannedJan] = useState<string | null>(null);
   const [quantityInput, setQuantityInput] = useState<string>("1");
   const [productNameInput, setProductNameInput] = useState<string>("");
+  const [manufacturerInput, setManufacturerInput] = useState<string>("");
   const [isFetchingName, setIsFetchingName] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  const fetchProductName = async (janCode: string, retries = 2): Promise<string> => {
-    if (!clientId) return "";
+  const fetchProductInfo = async (janCode: string, retries = 2): Promise<{name: string, manufacturer: string} | null> => {
+    if (!clientId) return null;
     
     setApiError(null);
     setIsFetchingName(true);
 
     const targetUrl = encodeURIComponent(`https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`);
     
-    // 複数のプロキシを用意して、失敗したら次を試す
     const proxies = [
       `https://corsproxy.io/?url=${targetUrl}`,
       `https://api.allorigins.win/get?url=${targetUrl}`
@@ -54,33 +54,35 @@ function App() {
           if (data.Error) {
              setApiError(`API Error: ${data.Error.Message}`);
              setIsFetchingName(false);
-             return "";
+             return null;
           }
 
           if (data.hits && data.hits.length > 0) {
             setIsFetchingName(false);
-            return data.hits[0].name;
+            const item = data.hits[0];
+            // Yahoo API ではブランド名(brand.name)や販売ストア名などが取れる。
+            // もしbrandオブジェクトがあればそれをメーカー名として扱う。
+            const manufacturer = item.brand?.name || "";
+            return { name: item.name, manufacturer };
           } else {
             setApiError("商品がデータベースに見つかりませんでした。");
             setIsFetchingName(false);
-            return "";
+            return null;
           }
         } catch (error: any) {
           console.error(`Attempt ${attempt + 1} with ${proxyUrl} failed:`, error);
-          // 最後の試行の最後のプロキシが失敗した場合はエラーを表示
           if (attempt === retries && proxyUrl === proxies[proxies.length - 1]) {
             setApiError(`通信エラー（複数回試行）: APIサーバーが混雑しています。手入力してください。`);
           }
         }
       }
-      // リトライ前に少し待機
       if (attempt < retries) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
     
     setIsFetchingName(false);
-    return "";
+    return null;
   };
 
   const handleScan = async (decodedText: string) => {
@@ -92,18 +94,19 @@ function App() {
     const existingItem = items.find(item => item.janCode === decodedText);
     
     if (existingItem) {
-      // 存在する場合は、商品名をリストから復元し、数量を+1した状態をフォームにセットする（APIは呼ばない）
       setProductNameInput(existingItem.productName);
+      setManufacturerInput(existingItem.manufacturerName || "");
       setQuantityInput((existingItem.quantity + 1).toString());
     } else {
-      // 新規の場合は数量1、商品名は空欄（API設定があれば取得）からスタート
       setQuantityInput("1");
       setProductNameInput("");
+      setManufacturerInput("");
       
       if (clientId) {
-        const name = await fetchProductName(decodedText);
-        if (name) {
-          setProductNameInput(name);
+        const info = await fetchProductInfo(decodedText);
+        if (info) {
+          setProductNameInput(info.name);
+          setManufacturerInput(info.manufacturer);
         }
       }
     }
@@ -115,12 +118,14 @@ function App() {
     addOrUpdateItem({
       janCode: scannedJan,
       productName: productNameInput || "名称未設定",
+      manufacturerName: manufacturerInput,
       quantity: parseInt(quantityInput, 10) || 1,
     });
     
     setScannedJan(null);
     setQuantityInput("1");
     setProductNameInput("");
+    setManufacturerInput("");
   };
 
   const handleCancelScan = () => {
@@ -179,6 +184,17 @@ function App() {
                   {!clientId && <small>※設定画面でAPIキーを登録すると自動取得できます</small>}
                 </div>
                 <div className="form-group">
+                  <label>メーカー名 / ブランド</label>
+                  <input 
+                    type="text" 
+                    value={manufacturerInput} 
+                    onChange={(e) => setManufacturerInput(e.target.value)} 
+                    placeholder="手入力できます"
+                    className="form-control" 
+                    disabled={isFetchingName}
+                  />
+                </div>
+                <div className="form-group">
                   <label>数量</label>
                   <input 
                     type="number" 
@@ -215,6 +231,7 @@ function App() {
                     <div className="item-details">
                       <div className="item-jan">{item.janCode}</div>
                       <div className="item-name">{item.productName}</div>
+                      {item.manufacturerName && <div className="item-manufacturer" style={{ fontSize: '0.85rem', color: 'var(--secondary-color)', marginTop: '4px' }}>{item.manufacturerName}</div>}
                     </div>
                     <div className="item-actions">
                       <div className="item-quantity">
