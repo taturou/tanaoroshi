@@ -19,52 +19,67 @@ function App() {
   const [isFetchingName, setIsFetchingName] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  const fetchProductName = async (janCode: string) => {
+  const fetchProductName = async (janCode: string, retries = 2): Promise<string> => {
     if (!clientId) return "";
     
     setApiError(null);
-    try {
-      setIsFetchingName(true);
-      // Yahoo Shopping API (CORS制限を回避するために allorigins プロキシを経由)
-      const targetUrl = encodeURIComponent(`https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`);
-      const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}`;
-      
-      const response = await fetch(proxyUrl);
-      
-      if (!response.ok) {
-        setApiError(`HTTP Error: ${response.status}`);
-        return "";
-      }
-      
-      const proxyData = await response.json();
-      
-      // allorigins は実際のレスポンスを .contents に文字列として格納して返す
-      if (proxyData.contents) {
-        const data = JSON.parse(proxyData.contents);
-        
-        // Yahoo API のエラーレスポンス確認
-        if (data.Error) {
-           setApiError(`API Error: ${data.Error.Message}`);
-           return "";
-        }
+    setIsFetchingName(true);
 
-        if (data.hits && data.hits.length > 0) {
-          return data.hits[0].name;
-        } else {
-          setApiError("商品がデータベースに見つかりませんでした。");
-          return "";
-        }
-      } else {
-        setApiError("プロキシからの不正なレスポンス形式です。");
-        return "";
-      }
+    const targetUrl = encodeURIComponent(`https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`);
+    
+    // 複数のプロキシを用意して、失敗したら次を試す
+    const proxies = [
+      `https://corsproxy.io/?url=${targetUrl}`,
+      `https://api.allorigins.win/get?url=${targetUrl}`
+    ];
 
-    } catch (error: any) {
-      console.error("Failed to fetch product name:", error);
-      setApiError(`通信エラー: ${error.message || 'Unknown error'}`);
-    } finally {
-      setIsFetchingName(false);
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      for (const proxyUrl of proxies) {
+        try {
+          const response = await fetch(proxyUrl);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP Error: ${response.status}`);
+          }
+          
+          let data;
+          if (proxyUrl.includes('allorigins')) {
+            const proxyData = await response.json();
+            if (!proxyData.contents) throw new Error("Invalid allorigins response");
+            data = JSON.parse(proxyData.contents);
+          } else {
+            data = await response.json();
+          }
+          
+          if (data.Error) {
+             setApiError(`API Error: ${data.Error.Message}`);
+             setIsFetchingName(false);
+             return "";
+          }
+
+          if (data.hits && data.hits.length > 0) {
+            setIsFetchingName(false);
+            return data.hits[0].name;
+          } else {
+            setApiError("商品がデータベースに見つかりませんでした。");
+            setIsFetchingName(false);
+            return "";
+          }
+        } catch (error: any) {
+          console.error(`Attempt ${attempt + 1} with ${proxyUrl} failed:`, error);
+          // 最後の試行の最後のプロキシが失敗した場合はエラーを表示
+          if (attempt === retries && proxyUrl === proxies[proxies.length - 1]) {
+            setApiError(`通信エラー（複数回試行）: APIサーバーが混雑しています。手入力してください。`);
+          }
+        }
+      }
+      // リトライ前に少し待機
+      if (attempt < retries) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
+    
+    setIsFetchingName(false);
     return "";
   };
 
