@@ -75,7 +75,8 @@ function App() {
           setIsFetchingName(false);
           const item = data.hits[0];
           const manufacturer = item.brand?.name || "";
-          const category = item.category?.name || "";
+          // カテゴリ取得を強化（genre_categoryも確認）
+          const category = item.genre_category?.name || item.category?.name || "";
           const imageUrl = item.image?.medium || item.image?.small || null;
           return { name: item.name, manufacturer, category, imageUrl };
         } else {
@@ -295,9 +296,9 @@ function App() {
                     value={categoryInput} 
                     onChange={(e) => setCategoryInput(e.target.value)} 
                     placeholder="手入力できます"
-                    className={`form-control ${isInputLocked ? 'readonly' : ''}`} 
+                    className={`form-control ${(isInputLocked && categoryInput) ? 'readonly' : ''}`} 
                     disabled={isFetchingName}
-                    readOnly={isInputLocked}
+                    readOnly={!!(isInputLocked && categoryInput)}
                   />
                 </div>
 
@@ -308,9 +309,9 @@ function App() {
                     value={manufacturerInput} 
                     onChange={(e) => setManufacturerInput(e.target.value)} 
                     placeholder="手入力できます"
-                    className={`form-control ${isInputLocked ? 'readonly' : ''}`} 
+                    className={`form-control ${(isInputLocked && manufacturerInput) ? 'readonly' : ''}`} 
                     disabled={isFetchingName}
-                    readOnly={isInputLocked}
+                    readOnly={!!(isInputLocked && manufacturerInput)}
                   />
                 </div>
 
@@ -321,9 +322,9 @@ function App() {
                       value={productNameInput} 
                       onChange={(e) => setProductNameInput(e.target.value)} 
                       placeholder={isFetchingName ? "取得中..." : "手入力できます"}
-                      className={`form-control ${isInputLocked ? 'readonly' : ''}`} 
+                      className={`form-control ${(isInputLocked && productNameInput) ? 'readonly' : ''}`} 
                       disabled={isFetchingName}
-                      readOnly={isInputLocked}
+                      readOnly={!!(isInputLocked && productNameInput)}
                       rows={2}
                       style={{ resize: 'none' }}
                     />
