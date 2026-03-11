@@ -129,13 +129,23 @@ export function Scanner({ onScan, isActive }: ScannerProps) {
   };
 
   return (
-    <div style={{ width: '100%', maxWidth: '400px', margin: '0 auto', textAlign: 'center' }}>
-      <div style={{ padding: '8px', backgroundColor: '#e9ecef', borderRadius: '4px', marginBottom: '8px', fontSize: '0.9rem' }}>
+    <div style={{ width: '100%', maxWidth: '400px', margin: '0 auto', textAlign: 'center', display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ padding: '8px', backgroundColor: '#e9ecef', borderRadius: '4px', marginBottom: '8px', fontSize: '0.85rem', flexShrink: 0 }}>
         <strong>状態:</strong> {statusMsg} <br/>
         <small style={{ color: '#6c757d' }}>解析フレーム数: {scanAttempts}</small>
       </div>
       <div 
-        style={{ position: 'relative', width: '100%', height: '300px', backgroundColor: '#000', overflow: 'hidden', cursor: 'pointer', borderRadius: '8px' }}
+        style={{ 
+          position: 'relative', 
+          width: '100%', 
+          flex: 1,
+          minHeight: '200px',
+          maxHeight: 'calc(100dvh - 300px)', // ヘッダー、ナビ、ボタン、余白を考慮
+          backgroundColor: '#000', 
+          overflow: 'hidden', 
+          cursor: 'pointer', 
+          borderRadius: '8px' 
+        }}
         onClick={handleVideoClick}
       >
         <video 

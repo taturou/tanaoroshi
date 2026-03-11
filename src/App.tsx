@@ -342,13 +342,15 @@ function App() {
           style={{ display: 'none' }} 
         />
         {activeTab === 'scan' && (
-          <div className="scan-section">
+          <div className="scan-section" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {!scannedJan ? (
-              <div className="scanner-container">
+              <div className="scanner-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 {isScanning ? (
                   <>
-                    <Scanner isActive={isScanning} onScan={handleScan} />
-                    <button className="btn btn-secondary mt-4" onClick={() => setIsScanning(false)}>
+                    <div style={{ flex: 1, minHeight: 0 }}>
+                      <Scanner isActive={isScanning} onScan={handleScan} />
+                    </div>
+                    <button className="btn btn-secondary mt-4" style={{ flexShrink: 0 }} onClick={() => setIsScanning(false)}>
                       スキャンを停止
                     </button>
                   </>
