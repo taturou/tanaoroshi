@@ -135,7 +135,7 @@ export function Scanner({ onScan, isActive }: ScannerProps) {
         <small style={{ color: '#6c757d' }}>解析フレーム数: {scanAttempts}</small>
       </div>
       <div 
-        style={{ position: 'relative', width: '100%', minHeight: '300px', backgroundColor: '#000', overflow: 'hidden', cursor: 'pointer' }}
+        style={{ position: 'relative', width: '100%', height: '300px', backgroundColor: '#000', overflow: 'hidden', cursor: 'pointer', borderRadius: '8px' }}
         onClick={handleVideoClick}
       >
         <video 
