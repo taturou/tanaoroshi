@@ -199,10 +199,8 @@ function App() {
         setImageUrlInput(info.imageUrl);
         setIsApiFetched(true);
       } else {
-        // APIで見つからなかった場合、写真撮影を促すためにインプットをクリックさせる
-        setTimeout(() => {
-          photoInputRef.current?.click();
-        }, 500);
+        // iOSの制限により自動起動はできないため、メッセージで誘導する
+        setApiError("商品が見つかりませんでした。写真を撮って商品名を取得しますか？");
       }
     }
   };
@@ -368,13 +366,17 @@ function App() {
                 <h3>商品登録 {isExistingItem ? <span className="badge badge-info">リスト登録済</span> : <span className="badge badge-success">新規</span>}</h3>
                 
                 <div className="form-group" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                  <div className="product-image-container" style={{ width: '80px', height: '80px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                  <div 
+                    className="product-image-container" 
+                    onClick={() => photoInputRef.current?.click()}
+                    style={{ width: '80px', height: '80px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', cursor: 'pointer', border: !imageUrlInput ? '2px dashed #adb5bd' : 'none' }}
+                  >
                     {imageUrlInput ? (
                       <img src={imageUrlInput} alt="商品画像" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; setImageUrlInput(null); }} />
                     ) : (
                       <div style={{ textAlign: 'center', color: '#adb5bd' }}>
                         <ImageIcon style={{ margin: '0 auto' }} />
-                        <span style={{ fontSize: '0.6rem', display: 'block' }}>No Image</span>
+                        <span style={{ fontSize: '0.6rem', display: 'block' }}>写真を撮る</span>
                       </div>
                     )}
                   </div>
@@ -442,7 +444,20 @@ function App() {
                       <Loader2 className="spinner" style={{ position: 'absolute', right: '10px', top: '10px', color: 'var(--primary-color)' }} />
                     )}
                   </div>
-                  {apiError && <small style={{ color: 'red', display: 'block', marginTop: '4px' }}>{apiError}</small>}
+                  {apiError && (
+                    <div style={{ marginTop: '8px' }}>
+                      <small style={{ color: 'red', display: 'block', marginBottom: '8px' }}>{apiError}</small>
+                      {(!isApiFetched && !isExistingItem && !imageUrlInput) && (
+                        <button 
+                          className="btn btn-primary" 
+                          onClick={() => photoInputRef.current?.click()}
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}
+                        >
+                          <Camera size={20} /> 商品の写真を撮る
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {isOcrProcessing && <small style={{ color: 'var(--primary-color)', display: 'block', marginTop: '4px' }}>AIが写真から文字を読み取っています...</small>}
                 </div>
 
