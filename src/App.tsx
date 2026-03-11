@@ -341,13 +341,17 @@ function App() {
         {activeTab === 'scan' && (
           <div className="scan-section" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {!scannedJan ? (
-              <div className="scanner-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div className="scanner-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingBottom: '60px' }}>
                 {isScanning ? (
                   <>
                     <div style={{ flex: 1, minHeight: 0 }}>
                       <Scanner isActive={isScanning} onScan={handleScan} />
                     </div>
-                    <button className="btn btn-secondary mt-4" style={{ flexShrink: 0 }} onClick={() => setIsScanning(false)}>
+                    <button 
+                      className="btn btn-secondary mt-4" 
+                      style={{ flexShrink: 0, margin: '1rem', marginBottom: '0.5rem' }} 
+                      onClick={() => setIsScanning(false)}
+                    >
                       スキャンを停止
                     </button>
                   </>
@@ -491,8 +495,8 @@ function App() {
                     </div>
                   </div>
                   <div className="form-actions large-actions" style={{ marginTop: 0 }}>
-                    <button className="btn btn-secondary btn-large" onClick={handleCancelScan} style={{ padding: '0.6rem' }}>キャンセル</button>
-                    <button className="btn btn-primary btn-large" onClick={handleSaveScannedItem} disabled={isFetchingName || isOcrProcessing} style={{ padding: '0.6rem' }}>{isExistingItem ? "上書き保存する" : "保存する"}</button>
+                    <button className="btn btn-secondary btn-large" onClick={handleCancelScan}>キャンセル</button>
+                    <button className="btn btn-primary btn-large" onClick={handleSaveScannedItem} disabled={isFetchingName || isOcrProcessing}>{isExistingItem ? "上書き保存する" : "保存する"}</button>
                   </div>
                 </div>
               </div>
@@ -501,7 +505,7 @@ function App() {
         )}
 
         {activeTab === 'list' && (
-          <div className="list-section">
+          <div className="list-section" style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '1rem', paddingBottom: '70px' }}>
             <div className="list-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.75rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2>記録データ ({items.length}件)</h2>
@@ -526,86 +530,88 @@ function App() {
               </div>
             </div>
             
-            {items.length === 0 ? (
-              <p className="empty-state">データがありません</p>
-            ) : filteredItems.length === 0 ? (
-              <p className="empty-state">検索結果が見つかりません</p>
-            ) : (
-              <ul className="inventory-list">
-                {filteredItems.map(item => (
-                  <li key={item.id} className="inventory-item card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      {/* 左側の画像エリア */}
-                      <div className="item-image" style={{ width: '60px', height: '60px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '6px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-                        {item.imageUrl ? (
-                          <img src={item.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} loading="lazy" />
-                        ) : (
-                          <ImageIcon className="icon-small" style={{ color: '#adb5bd' }} />
-                        )}
-                      </div>
-
-                      {/* 右側のJANと分類・メーカー */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="item-jan" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
-                          <span>{item.janCode}</span>
-                          <button className="btn-icon" onClick={() => setEditingItem({ id: item.id, name: item.productName, manufacturer: item.manufacturerName || "", category: item.category || "" })}>
-                            <Edit2 className="icon-small" style={{ color: 'var(--primary-color)' }} />
-                          </button>
+            <div style={{ flex: 1, overflowY: 'auto', marginTop: '1rem' }}>
+              {items.length === 0 ? (
+                <p className="empty-state">データがありません</p>
+              ) : filteredItems.length === 0 ? (
+                <p className="empty-state">検索結果が見つかりません</p>
+              ) : (
+                <ul className="inventory-list">
+                  {filteredItems.map(item => (
+                    <li key={item.id} className="inventory-item card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                        {/* 左側の画像エリア */}
+                        <div className="item-image" style={{ width: '60px', height: '60px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '6px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} loading="lazy" />
+                          ) : (
+                            <ImageIcon className="icon-small" style={{ color: '#adb5bd' }} />
+                          )}
                         </div>
-                        {item.category && (
-                          <div className="item-category" style={{ fontSize: '0.8rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>
-                            [{item.category}]
-                          </div>
-                        )}
-                        {item.manufacturerName && (
-                          <div className="item-manufacturer" style={{ fontSize: '0.9rem', color: 'var(--secondary-color)' }}>
-                            {item.manufacturerName}
-                          </div>
-                        )}
-                      </div>
-                    </div>
 
-                    {/* 下段の商品名 */}
-                    <div className="item-name" style={{ fontSize: '1.1rem', wordBreak: 'break-all', borderTop: '1px dashed var(--border-color)', paddingTop: '0.5rem', fontWeight: 'bold' }}>
-                      {item.productName}
-                    </div>
-                    
-                    <div className="item-actions">
-                      <div className="item-quantity">
-                        <span className="qty-label">数量:</span>
-                        <div className="quantity-control-group small">
-                          <button 
-                            className="btn btn-qty btn-minus small" 
-                            onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                          >
-                            -
-                          </button>
-                          <div className="quantity-display small">{item.quantity}</div>
-                          <button 
-                            className="btn btn-qty btn-plus small" 
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          >
-                            +
-                          </button>
+                        {/* 右側のJANと分類・メーカー */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="item-jan" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
+                            <span>{item.janCode}</span>
+                            <button className="btn-icon" onClick={() => setEditingItem({ id: item.id, name: item.productName, manufacturer: item.manufacturerName || "", category: item.category || "" })}>
+                              <Edit2 className="icon-small" style={{ color: 'var(--primary-color)' }} />
+                            </button>
+                          </div>
+                          {item.category && (
+                            <div className="item-category" style={{ fontSize: '0.8rem', color: 'var(--primary-color)', fontWeight: 'bold' }}>
+                              [{item.category}]
+                            </div>
+                          )}
+                          {item.manufacturerName && (
+                            <div className="item-manufacturer" style={{ fontSize: '0.9rem', color: 'var(--secondary-color)' }}>
+                              {item.manufacturerName}
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <button className="btn-icon text-danger" onClick={() => {
-                        if (window.confirm(`「${item.productName}」をリストから削除しますか？`)) {
-                          removeItem(item.id);
-                        }
-                      }}>
-                        <Trash2 className="icon-small" />
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+
+                      {/* 下段の商品名 */}
+                      <div className="item-name" style={{ fontSize: '1.1rem', wordBreak: 'break-all', borderTop: '1px dashed var(--border-color)', paddingTop: '0.5rem', fontWeight: 'bold' }}>
+                        {item.productName}
+                      </div>
+                      
+                      <div className="item-actions">
+                        <div className="item-quantity">
+                          <span className="qty-label">数量:</span>
+                          <div className="quantity-control-group small">
+                            <button 
+                              className="btn btn-qty btn-minus small" 
+                              onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
+                            >
+                              -
+                            </button>
+                            <div className="quantity-display small">{item.quantity}</div>
+                            <button 
+                              className="btn btn-qty btn-plus small" 
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                        <button className="btn-icon text-danger" onClick={() => {
+                          if (window.confirm(`「${item.productName}」をリストから削除しますか？`)) {
+                            removeItem(item.id);
+                          }
+                        }}>
+                          <Trash2 className="icon-small" />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         )}
 
         {activeTab === 'settings' && (
-          <div className="settings-section card">
+          <div className="settings-section card" style={{ margin: '1rem', paddingBottom: '80px' }}>
             <h2>設定</h2>
             
             <div className="form-group">

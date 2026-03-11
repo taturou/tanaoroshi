@@ -60,6 +60,7 @@ input, textarea, [contenteditable="true"] {
   display: flex;
   flex-direction: column;
   position: relative;
+  /* ボトムナビゲーション分の余白は内部の各セクションで管理 */
 }
 
 /* Bottom Navigation */
@@ -153,9 +154,10 @@ input, textarea, [contenteditable="true"] {
 
 .btn-large {
   width: 100%;
-  padding: 0.75rem;
-  font-size: 0.95rem;
+  padding: 0.8rem 1rem; /* 数量ボタンと高さを合わせる */
+  font-size: 1rem;
   border-radius: 8px;
+  line-height: 1.2;
 }
 
 .btn-icon {
@@ -245,9 +247,10 @@ input, textarea, [contenteditable="true"] {
 }
 
 .quantity-control-group.large .btn-qty {
-  padding: 0.8rem 1.2rem;
+  padding: 0.8rem 1.25rem; /* 縦パディングをアクションボタンと統一 */
   font-size: 1.5rem;
   width: 65px;
+  line-height: 1.2;
 }
 
 .btn-qty:active {
@@ -282,7 +285,7 @@ input, textarea, [contenteditable="true"] {
 
 .quantity-display.large {
   font-size: 1.5rem;
-  padding: 0.75rem;
+  padding: 0.8rem; /* 縦幅をボタンと合わせる */
 }
 
 .quantity-display.small {
@@ -402,7 +405,7 @@ input, textarea, [contenteditable="true"] {
 }
 
 .form-actions.large-actions .btn {
-  padding: 0.85rem;
+  padding: 0.8rem 1rem; /* 縦幅を合わせる */
   font-size: 1rem;
 }
 
