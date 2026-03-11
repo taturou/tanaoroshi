@@ -17,3 +17,4 @@ node_modules
 .codex/tmp
 .codex/version.json
 .venv
+dist
