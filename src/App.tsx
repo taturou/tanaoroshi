@@ -364,129 +364,136 @@ function App() {
                 )}
               </div>
             ) : (
-              <div className="input-form card">
-                <h3>商品登録 {isExistingItem ? <span className="badge badge-info">リスト登録済</span> : <span className="badge badge-success">新規</span>}</h3>
-                
-                <div className="form-group" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                  <div 
-                    className="product-image-container" 
-                    onClick={() => photoInputRef.current?.click()}
-                    style={{ width: '80px', height: '80px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', cursor: 'pointer', border: !imageUrlInput ? '2px dashed #adb5bd' : 'none' }}
-                  >
-                    {imageUrlInput ? (
-                      <img src={imageUrlInput} alt="商品画像" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; setImageUrlInput(null); }} />
-                    ) : (
-                      <div style={{ textAlign: 'center', color: '#adb5bd' }}>
-                        <ImageIcon style={{ margin: '0 auto' }} />
-                        <span style={{ fontSize: '0.6rem', display: 'block' }}>写真を撮る</span>
-                      </div>
-                    )}
+              <div className="input-form card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 200px)', padding: 0, overflow: 'hidden', margin: 0 }}>
+                {/* 上部：スクロール可能な商品情報エリア */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+                  <h3 style={{ marginTop: 0 }}>商品登録 {isExistingItem ? <span className="badge badge-info">リスト登録済</span> : <span className="badge badge-success">新規</span>}</h3>
+                  
+                  <div className="form-group" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                    <div 
+                      className="product-image-container" 
+                      onClick={() => photoInputRef.current?.click()}
+                      style={{ width: '80px', height: '80px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', cursor: 'pointer', border: !imageUrlInput ? '2px dashed #adb5bd' : 'none' }}
+                    >
+                      {imageUrlInput ? (
+                        <img src={imageUrlInput} alt="商品画像" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; setImageUrlInput(null); }} />
+                      ) : (
+                        <div style={{ textAlign: 'center', color: '#adb5bd' }}>
+                          <ImageIcon style={{ margin: '0 auto' }} />
+                          <span style={{ fontSize: '0.6rem', display: 'block' }}>写真を撮る</span>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label>JANコード</label>
+                      <input type="text" value={scannedJan} readOnly className="form-control readonly" />
+                    </div>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <label>JANコード</label>
-                    <input type="text" value={scannedJan} readOnly className="form-control readonly" />
-                  </div>
-                </div>
 
-                <div className="form-group">
-                  <label>商品分類</label>
-                  <div className="category-tags-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    {categories.map(cat => (
-                      <button 
-                        key={cat} 
-                        className={`tag-btn ${categoryInput === cat ? 'active' : ''}`}
-                        onClick={() => setCategoryInput(cat)}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                    <button className="tag-btn add-btn" onClick={handleAddNewCategory}>+ 新規</button>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>メーカー名 / ブランド</label>
-                  <input 
-                    type="text" 
-                    value={manufacturerInput} 
-                    onChange={(e) => setManufacturerInput(e.target.value)} 
-                    placeholder="手入力できます"
-                    className={`form-control ${(isInputLocked && manufacturerInput) ? 'readonly' : ''}`} 
-                    disabled={isFetchingName}
-                    readOnly={!!(isInputLocked && manufacturerInput)}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <label style={{ marginBottom: 0 }}>商品名</label>
-                    {!isExistingItem && !isApiFetched && (
-                      <button 
-                        className="btn-text-icon" 
-                        onClick={() => photoInputRef.current?.click()}
-                        disabled={isOcrProcessing || isFetchingName}
-                        style={{ fontSize: '0.8rem', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: '1px solid var(--primary-color)', color: 'var(--primary-color)', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        <Camera size={14} /> 写真から抽出
-                      </button>
-                    )}
-                  </div>
-                  <div style={{ position: 'relative' }}>
-                    <textarea 
-                      value={productNameInput} 
-                      onChange={(e) => setProductNameInput(e.target.value)} 
-                      placeholder={isFetchingName ? "取得中..." : isOcrProcessing ? "解析中..." : "手入力できます"}
-                      className={`form-control ${(isInputLocked && productNameInput) ? 'readonly' : ''}`} 
-                      disabled={isFetchingName || isOcrProcessing}
-                      readOnly={!!(isInputLocked && productNameInput)}
-                      rows={2}
-                      style={{ resize: 'none' }}
-                    />
-                    {(isFetchingName || isOcrProcessing) && (
-                      <Loader2 className="spinner" style={{ position: 'absolute', right: '10px', top: '10px', color: 'var(--primary-color)' }} />
-                    )}
-                  </div>
-                  {apiError && (
-                    <div style={{ marginTop: '8px' }}>
-                      <small style={{ color: 'red', display: 'block', marginBottom: '8px' }}>{apiError}</small>
-                      {(!isApiFetched && !isExistingItem && !imageUrlInput) && (
+                  <div className="form-group">
+                    <label>商品分類</label>
+                    <div className="category-tags-container" style={{ display: 'flex', overflowX: 'auto', gap: '0.5rem', marginBottom: '0.5rem', paddingBottom: '8px', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
+                      {categories.map(cat => (
                         <button 
-                          className="btn btn-primary" 
-                          onClick={() => photoInputRef.current?.click()}
-                          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}
+                          key={cat} 
+                          className={`tag-btn ${categoryInput === cat ? 'active' : ''}`}
+                          onClick={() => setCategoryInput(cat)}
+                          style={{ flexShrink: 0 }}
                         >
-                          <Camera size={20} /> 商品の写真を撮る
+                          {cat}
+                        </button>
+                      ))}
+                      <button className="tag-btn add-btn" onClick={handleAddNewCategory} style={{ flexShrink: 0 }}>+ 新規</button>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>メーカー名 / ブランド</label>
+                    <input 
+                      type="text" 
+                      value={manufacturerInput} 
+                      onChange={(e) => setManufacturerInput(e.target.value)} 
+                      placeholder="手入力できます"
+                      className={`form-control ${(isInputLocked && manufacturerInput) ? 'readonly' : ''}`} 
+                      disabled={isFetchingName}
+                      readOnly={!!(isInputLocked && manufacturerInput)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <label style={{ marginBottom: 0 }}>商品名</label>
+                      {!isExistingItem && !isApiFetched && (
+                        <button 
+                          className="btn-text-icon" 
+                          onClick={() => photoInputRef.current?.click()}
+                          disabled={isOcrProcessing || isFetchingName}
+                          style={{ fontSize: '0.8rem', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: '1px solid var(--primary-color)', color: 'var(--primary-color)', borderRadius: '4px', cursor: 'pointer' }}
+                        >
+                          <Camera size={14} /> 写真から抽出
                         </button>
                       )}
                     </div>
-                  )}
-                  {isOcrProcessing && <small style={{ color: 'var(--primary-color)', display: 'block', marginTop: '4px' }}>AIが写真から文字を読み取っています...</small>}
-                </div>
-
-                <div className="form-group">
-                  <label>
-                    数量 
-                    {isExistingItem && originalQuantity !== null && <span style={{ color: 'var(--secondary-color)', fontSize: '0.85rem', marginLeft: '8px' }}>(元の数量: {originalQuantity})</span>}
-                  </label>
-                  <div className="quantity-control-group large">
-                    <button 
-                      className="btn btn-qty btn-minus" 
-                      onClick={() => setQuantityInput(prev => Math.max(1, prev - 1))}
-                    >
-                      -
-                    </button>
-                    <div className="quantity-display large">{quantityInput}</div>
-                    <button 
-                      className="btn btn-qty btn-plus" 
-                      onClick={() => setQuantityInput(prev => prev + 1)}
-                    >
-                      +
-                    </button>
+                    <div style={{ position: 'relative' }}>
+                      <textarea 
+                        value={productNameInput} 
+                        onChange={(e) => setProductNameInput(e.target.value)} 
+                        placeholder={isFetchingName ? "取得中..." : isOcrProcessing ? "解析中..." : "手入力できます"}
+                        className={`form-control ${(isInputLocked && productNameInput) ? 'readonly' : ''}`} 
+                        disabled={isFetchingName || isOcrProcessing}
+                        readOnly={!!(isInputLocked && productNameInput)}
+                        rows={2}
+                        style={{ resize: 'none' }}
+                      />
+                      {(isFetchingName || isOcrProcessing) && (
+                        <Loader2 className="spinner" style={{ position: 'absolute', right: '10px', top: '10px', color: 'var(--primary-color)' }} />
+                      )}
+                    </div>
+                    {apiError && (
+                      <div style={{ marginTop: '8px' }}>
+                        <small style={{ color: 'red', display: 'block', marginBottom: '8px' }}>{apiError}</small>
+                        {(!isApiFetched && !isExistingItem && !imageUrlInput) && (
+                          <button 
+                            className="btn btn-primary" 
+                            onClick={() => photoInputRef.current?.click()}
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}
+                          >
+                            <Camera size={20} /> 商品の写真を撮る
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {isOcrProcessing && <small style={{ color: 'var(--primary-color)', display: 'block', marginTop: '4px' }}>AIが写真から文字を読み取っています...</small>}
                   </div>
                 </div>
-                <div className="form-actions large-actions">
-                  <button className="btn btn-secondary btn-large" onClick={handleCancelScan}>キャンセル</button>
-                  <button className="btn btn-primary btn-large" onClick={handleSaveScannedItem} disabled={isFetchingName || isOcrProcessing}>{isExistingItem ? "上書き保存する" : "保存する"}</button>
+
+                {/* 下部：固定操作エリア */}
+                <div style={{ flexShrink: 0, padding: '1rem 1.5rem', backgroundColor: '#fff', borderTop: '1px solid var(--border-color)', boxShadow: '0 -2px 10px rgba(0,0,0,0.05)' }}>
+                  <div className="form-group" style={{ marginBottom: '1rem' }}>
+                    <label style={{ marginBottom: '0.5rem', display: 'block' }}>
+                      数量 
+                      {isExistingItem && originalQuantity !== null && <span style={{ color: 'var(--secondary-color)', fontSize: '0.85rem', marginLeft: '8px' }}>(元の数量: {originalQuantity})</span>}
+                    </label>
+                    <div className="quantity-control-group large">
+                      <button 
+                        className="btn btn-qty btn-minus" 
+                        onClick={() => setQuantityInput(prev => Math.max(1, prev - 1))}
+                      >
+                        -
+                      </button>
+                      <div className="quantity-display large">{quantityInput}</div>
+                      <button 
+                        className="btn btn-qty btn-plus" 
+                        onClick={() => setQuantityInput(prev => prev + 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <div className="form-actions large-actions" style={{ marginTop: 0 }}>
+                    <button className="btn btn-secondary btn-large" onClick={handleCancelScan}>キャンセル</button>
+                    <button className="btn btn-primary btn-large" onClick={handleSaveScannedItem} disabled={isFetchingName || isOcrProcessing}>{isExistingItem ? "上書き保存する" : "保存する"}</button>
+                  </div>
                 </div>
               </div>
             )}
