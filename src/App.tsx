@@ -4,7 +4,7 @@ import { useInventory } from './hooks/useInventory'
 import { useSettings } from './hooks/useSettings'
 import { Scanner } from './components/Scanner'
 import { ReloadPrompt } from './components/ReloadPrompt'
-import { Camera, List as ListIcon, Settings, Download, Upload, Trash2, Loader2, Edit2, Image as ImageIcon, X } from 'lucide-react'
+import { Camera, List as ListIcon, Settings, Download, Upload, Trash2, Loader2, Edit2, Image as ImageIcon, X, RefreshCw } from 'lucide-react'
 import './index.css'
 
 function App() {
@@ -309,6 +309,20 @@ function App() {
     if (newCat && newCat.trim() && editingItem) {
       addCategory(newCat.trim());
       setEditingItem({...editingItem, category: newCat.trim()});
+    }
+  };
+
+  const handleCheckUpdate = () => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration().then(registration => {
+        if (registration) {
+          registration.update().then(() => {
+            alert("アップデートを確認しました。新しいバージョンがある場合は、次回の起動時またはリロード時に適用されます。");
+          });
+        } else {
+          alert("PWAとして登録されていません。");
+        }
+      });
     }
   };
 
@@ -661,6 +675,16 @@ function App() {
               </div>
             </div>
 
+            <div className="form-group mt-4">
+              <h3>システム</h3>
+              <div className="form-actions" style={{ flexDirection: 'column', gap: '0.5rem' }}>
+                <button className="btn btn-outline" onClick={handleCheckUpdate} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                  <RefreshCw className="icon" /> アップデートを確認する
+                </button>
+              </div>
+              <small>※ 最新バージョンがないか確認します。ブラウザのキャッシュを更新します。</small>
+            </div>
+
             <div className="danger-zone mt-4">
               <h3>リセット</h3>
               <p>全てのデータを消去し、初期状態に戻します。</p>
@@ -707,24 +731,6 @@ function App() {
           <div className="modal-content card">
             <h3>商品情報の編集</h3>
             <div className="form-group">
-              <label>商品名</label>
-              <textarea 
-                value={editingItem.name} 
-                onChange={(e) => setEditingItem({...editingItem, name: e.target.value})} 
-                className="form-control"
-                rows={3}
-              />
-            </div>
-            <div className="form-group">
-              <label>メーカー名</label>
-              <input 
-                type="text" 
-                value={editingItem.manufacturer} 
-                onChange={(e) => setEditingItem({...editingItem, manufacturer: e.target.value})} 
-                className="form-control"
-              />
-            </div>
-            <div className="form-group">
               <label>商品分類</label>
               <div className="category-tags-container" style={{ display: 'flex', overflowX: 'auto', gap: '0.4rem', marginBottom: '0.25rem', paddingBottom: '4px', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
                 {categories.map(cat => (
@@ -740,9 +746,27 @@ function App() {
                 <button className="tag-btn add-btn" onClick={handleEditAddNewCategory} style={{ flexShrink: 0 }}>+ 新規</button>
               </div>
             </div>
-            <div className="form-actions">
-              <button className="btn btn-secondary" onClick={() => setEditingItem(null)}>キャンセル</button>
-              <button className="btn btn-primary" onClick={handleSaveEdit}>保存</button>
+            <div className="form-group">
+              <label>メーカー名</label>
+              <input 
+                type="text" 
+                value={editingItem.manufacturer} 
+                onChange={(e) => setEditingItem({...editingItem, manufacturer: e.target.value})} 
+                className="form-control"
+              />
+            </div>
+            <div className="form-group">
+              <label>商品名</label>
+              <textarea 
+                value={editingItem.name} 
+                onChange={(e) => setEditingItem({...editingItem, name: e.target.value})} 
+                className="form-control"
+                rows={3}
+              />
+            </div>
+            <div className="form-actions" style={{ gap: '1rem' }}>
+              <button className="btn btn-secondary" onClick={() => setEditingItem(null)} style={{ padding: '1.2rem', fontSize: '1.1rem' }}>キャンセル</button>
+              <button className="btn btn-primary" onClick={handleSaveEdit} style={{ padding: '1.2rem', fontSize: '1.1rem' }}>保存</button>
             </div>
           </div>
         </div>
