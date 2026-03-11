@@ -35,27 +35,31 @@ input, textarea, [contenteditable="true"] {
   display: flex;
   flex-direction: column;
   height: 100dvh; /* スマホブラウザのツールバーを考慮した高さ */
+  overflow: hidden;
 }
 
 .app-header {
   background-color: var(--primary-color);
   color: white;
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   text-align: center;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   z-index: 10;
+  flex-shrink: 0;
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
 }
 
 .app-main {
   flex: 1;
-  padding: 1rem;
-  overflow-y: auto;
-  padding-bottom: 80px; /* 下部ナビゲーションのスペース */
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
 
 /* Bottom Navigation */
@@ -64,10 +68,11 @@ input, textarea, [contenteditable="true"] {
   bottom: 0;
   left: 0;
   right: 0;
+  height: 60px; /* 高さを固定 */
   background-color: var(--card-bg);
   display: flex;
   justify-content: space-around;
-  padding: 0.5rem 0;
+  padding: 0;
   box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
   border-top: 1px solid var(--border-color);
   z-index: 10;
@@ -81,8 +86,8 @@ input, textarea, [contenteditable="true"] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
-  padding: 0.5rem;
+  font-size: 0.7rem;
+  padding: 0.4rem;
   cursor: pointer;
   width: 100%;
 }
@@ -92,35 +97,35 @@ input, textarea, [contenteditable="true"] {
 }
 
 .nav-btn svg {
-  margin-bottom: 4px;
-  width: 24px;
-  height: 24px;
+  margin-bottom: 2px;
+  width: 20px;
+  height: 20px;
 }
 
 /* Cards & Layout */
 .card {
   background: var(--card-bg);
   border-radius: 8px;
-  padding: 1.5rem;
+  padding: 1.25rem;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
-.mt-4 { margin-top: 1rem; }
+.mt-4 { margin-top: 0.75rem; }
 
 /* Buttons */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.5rem 1rem;
+  padding: 0.4rem 0.8rem;
   border-radius: 4px;
   border: none;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.2s;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .btn-primary {
@@ -148,8 +153,8 @@ input, textarea, [contenteditable="true"] {
 
 .btn-large {
   width: 100%;
-  padding: 1rem;
-  font-size: 1.1rem;
+  padding: 0.75rem;
+  font-size: 0.95rem;
   border-radius: 8px;
 }
 
@@ -157,7 +162,7 @@ input, textarea, [contenteditable="true"] {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0.5rem;
+  padding: 0.4rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -165,32 +170,32 @@ input, textarea, [contenteditable="true"] {
 
 .text-danger { color: var(--danger-color); }
 
-.icon { width: 24px; height: 24px; }
-.icon-small { width: 18px; height: 18px; }
+.icon { width: 20px; height: 20px; }
+.icon-small { width: 16px; height: 16px; }
 
 /* Forms */
 .form-group {
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
   font-weight: 500;
   color: var(--text-color);
 }
 
 .form-group small {
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .form-control {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.6rem;
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .form-control.readonly {
@@ -199,7 +204,7 @@ input, textarea, [contenteditable="true"] {
 }
 
 .quantity-input {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   text-align: right;
   font-weight: bold;
 }
@@ -215,9 +220,9 @@ input, textarea, [contenteditable="true"] {
 }
 
 .quantity-control-group.large {
-  margin-top: 0.5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  border-radius: 12px;
+  margin-top: 0.4rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  border-radius: 10px;
 }
 
 .quantity-control-group.small {
@@ -226,8 +231,8 @@ input, textarea, [contenteditable="true"] {
 
 .btn-qty {
   border: none;
-  font-size: 1.5rem;
-  padding: 0.5rem 1rem;
+  font-size: 1.25rem;
+  padding: 0.4rem 0.8rem;
   cursor: pointer;
   transition: background-color 0.2s, filter 0.1s;
   color: var(--text-color);
@@ -240,9 +245,9 @@ input, textarea, [contenteditable="true"] {
 }
 
 .quantity-control-group.large .btn-qty {
-  padding: 1.5rem 2rem;
-  font-size: 2rem;
-  width: 80px;
+  padding: 0.8rem 1.2rem;
+  font-size: 1.5rem;
+  width: 65px;
 }
 
 .btn-qty:active {
@@ -260,43 +265,43 @@ input, textarea, [contenteditable="true"] {
 }
 
 .btn-qty.small {
-  font-size: 1.2rem;
-  padding: 0.2rem 0.6rem;
-  width: 40px;
+  font-size: 1rem;
+  padding: 0.2rem 0.5rem;
+  width: 35px;
 }
 
 .quantity-display {
   flex: 1;
   text-align: center;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: bold;
   border-left: 1px solid var(--border-color);
   border-right: 1px solid var(--border-color);
-  padding: 0.5rem;
+  padding: 0.4rem;
 }
 
 .quantity-display.large {
-  font-size: 2rem;
-  padding: 1rem;
+  font-size: 1.5rem;
+  padding: 0.75rem;
 }
 
 .quantity-display.small {
-  font-size: 1.1rem;
-  padding: 0.2rem 0.5rem;
-  min-width: 40px;
+  font-size: 1rem;
+  padding: 0.2rem 0.4rem;
+  min-width: 35px;
 }
 
 /* Category Tags */
 .category-tags-container {
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 .tag-btn {
   background-color: #fff;
   border: 1px solid var(--border-color);
   border-radius: 20px;
-  padding: 0.4rem 1rem;
-  font-size: 0.85rem;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-color);
   cursor: pointer;
   transition: all 0.2s;
@@ -306,7 +311,7 @@ input, textarea, [contenteditable="true"] {
   background-color: var(--primary-color);
   color: #fff;
   border-color: var(--primary-color);
-  box-shadow: 0 2px 4px rgba(0,123,255,0.3);
+  box-shadow: 0 1px 3px rgba(0,123,255,0.3);
 }
 
 .tag-btn.add-btn {
@@ -346,15 +351,15 @@ input, textarea, [contenteditable="true"] {
 /* Badges and Alerts */
 .badge {
   display: inline-block;
-  padding: 0.25em 0.4em;
-  font-size: 0.75rem;
+  padding: 0.2em 0.4em;
+  font-size: 0.7rem;
   font-weight: 700;
   line-height: 1;
   text-align: center;
   white-space: nowrap;
   vertical-align: baseline;
   border-radius: 0.25rem;
-  margin-left: 0.5rem;
+  margin-left: 0.4rem;
 }
 
 .badge-success {
@@ -368,11 +373,11 @@ input, textarea, [contenteditable="true"] {
 }
 
 .alert {
-  padding: 0.75rem 1.25rem;
-  margin-bottom: 1rem;
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.75rem;
   border: 1px solid transparent;
   border-radius: 0.25rem;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .alert-info {
@@ -383,13 +388,13 @@ input, textarea, [contenteditable="true"] {
 
 .form-actions {
   display: flex;
-  gap: 1rem;
-  margin-top: 1.5rem;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
 
 .form-actions.large-actions {
-  gap: 1.5rem;
-  margin-top: 2rem;
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
 
 .form-actions .btn {
@@ -397,14 +402,14 @@ input, textarea, [contenteditable="true"] {
 }
 
 .form-actions.large-actions .btn {
-  padding: 1.25rem;
-  font-size: 1.15rem;
+  padding: 0.85rem;
+  font-size: 1rem;
 }
 
 /* Scanner Section */
 .start-scan-wrapper {
   text-align: center;
-  padding: 2rem 1rem;
+  padding: 1.5rem 1rem;
 }
 
 .scanner-container {
@@ -416,18 +421,18 @@ input, textarea, [contenteditable="true"] {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .list-header h2 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
 }
 
 .empty-state {
   text-align: center;
   color: var(--text-muted);
-  padding: 2rem 0;
+  padding: 1.5rem 0;
 }
 
 .inventory-list {
@@ -439,50 +444,51 @@ input, textarea, [contenteditable="true"] {
 .inventory-item {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 1rem;
+  gap: 0.4rem;
+  padding: 0.85rem;
 }
 
 .item-details {
   border-bottom: 1px dashed var(--border-color);
-  padding-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
 }
 
 .item-jan {
   font-family: monospace;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .item-name {
   font-weight: bold;
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 .item-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 0.5rem;
+  padding-top: 0.4rem;
 }
 
 .item-quantity {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .qty-label {
   color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
 .qty-edit-input {
-  width: 80px;
-  padding: 0.5rem;
+  width: 70px;
+  padding: 0.4rem;
   border: 1px solid var(--border-color);
   border-radius: 4px;
   text-align: right;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: bold;
 }
 

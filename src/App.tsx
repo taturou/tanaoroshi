@@ -156,7 +156,7 @@ function App() {
         return offResult;
       }
 
-      setApiError("商品がデータベースに見つかりませんでした。手入力してください。");
+      setApiError("商品が見つかりませんでした。写真を撮って商品名を取得しますか？");
     } catch (error: any) {
       console.error("API Fetch Error:", error);
       setApiError(`通信エラーが発生しました。手入力してください。`);
@@ -198,9 +198,6 @@ function App() {
         setManufacturerInput(info.manufacturer);
         setImageUrlInput(info.imageUrl);
         setIsApiFetched(true);
-      } else {
-        // iOSの制限により自動起動はできないため、メッセージで誘導する
-        setApiError("商品が見つかりませんでした。写真を撮って商品名を取得しますか？");
       }
     }
   };
@@ -364,35 +361,35 @@ function App() {
                 )}
               </div>
             ) : (
-              <div className="input-form card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 200px)', padding: 0, overflow: 'hidden', margin: 0 }}>
+              <div className="input-form card" style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 0, overflow: 'hidden', margin: 0, borderRadius: 0, border: 'none' }}>
                 {/* 上部：スクロール可能な商品情報エリア */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-                  <h3 style={{ marginTop: 0 }}>商品登録 {isExistingItem ? <span className="badge badge-info">リスト登録済</span> : <span className="badge badge-success">新規</span>}</h3>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.25rem' }}>
+                  <h3 style={{ marginTop: 0, fontSize: '1.1rem' }}>商品登録 {isExistingItem ? <span className="badge badge-info">リスト登録済</span> : <span className="badge badge-success">新規</span>}</h3>
                   
-                  <div className="form-group" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                  <div className="form-group" style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
                     <div 
                       className="product-image-container" 
                       onClick={() => photoInputRef.current?.click()}
-                      style={{ width: '80px', height: '80px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', cursor: 'pointer', border: !imageUrlInput ? '2px dashed #adb5bd' : 'none' }}
+                      style={{ width: '70px', height: '70px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', cursor: 'pointer', border: !imageUrlInput ? '2px dashed #adb5bd' : 'none' }}
                     >
                       {imageUrlInput ? (
                         <img src={imageUrlInput} alt="商品画像" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; setImageUrlInput(null); }} />
                       ) : (
                         <div style={{ textAlign: 'center', color: '#adb5bd' }}>
-                          <ImageIcon style={{ margin: '0 auto' }} />
-                          <span style={{ fontSize: '0.6rem', display: 'block' }}>写真を撮る</span>
+                          <ImageIcon size={20} style={{ margin: '0 auto' }} />
+                          <span style={{ fontSize: '0.55rem', display: 'block' }}>写真を撮る</span>
                         </div>
                       )}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label>JANコード</label>
-                      <input type="text" value={scannedJan} readOnly className="form-control readonly" />
+                      <label style={{ fontSize: '0.9rem' }}>JANコード</label>
+                      <input type="text" value={scannedJan} readOnly className="form-control readonly" style={{ padding: '0.5rem' }} />
                     </div>
                   </div>
 
                   <div className="form-group">
-                    <label>商品分類</label>
-                    <div className="category-tags-container" style={{ display: 'flex', overflowX: 'auto', gap: '0.5rem', marginBottom: '0.5rem', paddingBottom: '8px', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
+                    <label style={{ fontSize: '0.9rem' }}>商品分類</label>
+                    <div className="category-tags-container" style={{ display: 'flex', overflowX: 'auto', gap: '0.4rem', marginBottom: '0.25rem', paddingBottom: '4px', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
                       {categories.map(cat => (
                         <button 
                           key={cat} 
@@ -408,7 +405,7 @@ function App() {
                   </div>
 
                   <div className="form-group">
-                    <label>メーカー名 / ブランド</label>
+                    <label style={{ fontSize: '0.9rem' }}>メーカー名 / ブランド</label>
                     <input 
                       type="text" 
                       value={manufacturerInput} 
@@ -417,20 +414,21 @@ function App() {
                       className={`form-control ${(isInputLocked && manufacturerInput) ? 'readonly' : ''}`} 
                       disabled={isFetchingName}
                       readOnly={!!(isInputLocked && manufacturerInput)}
+                      style={{ padding: '0.5rem' }}
                     />
                   </div>
 
                   <div className="form-group">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <label style={{ marginBottom: 0 }}>商品名</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                      <label style={{ marginBottom: 0, fontSize: '0.9rem' }}>商品名</label>
                       {!isExistingItem && !isApiFetched && (
                         <button 
                           className="btn-text-icon" 
                           onClick={() => photoInputRef.current?.click()}
                           disabled={isOcrProcessing || isFetchingName}
-                          style={{ fontSize: '0.8rem', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: '1px solid var(--primary-color)', color: 'var(--primary-color)', borderRadius: '4px', cursor: 'pointer' }}
+                          style={{ fontSize: '0.75rem', padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: '1px solid var(--primary-color)', color: 'var(--primary-color)', borderRadius: '4px', cursor: 'pointer' }}
                         >
-                          <Camera size={14} /> 写真から抽出
+                          <Camera size={12} /> 写真から抽出
                         </button>
                       )}
                     </div>
@@ -443,38 +441,40 @@ function App() {
                         disabled={isFetchingName || isOcrProcessing}
                         readOnly={!!(isInputLocked && productNameInput)}
                         rows={2}
-                        style={{ resize: 'none' }}
+                        style={{ resize: 'none', padding: '0.5rem' }}
                       />
                       {(isFetchingName || isOcrProcessing) && (
                         <Loader2 className="spinner" style={{ position: 'absolute', right: '10px', top: '10px', color: 'var(--primary-color)' }} />
                       )}
                     </div>
                     {apiError && (
-                      <div style={{ marginTop: '8px' }}>
-                        <small style={{ color: 'red', display: 'block', marginBottom: '8px' }}>{apiError}</small>
+                      <div style={{ marginTop: '4px' }}>
+                        <small style={{ color: 'red', display: 'block', marginBottom: '4px', fontSize: '0.75rem' }}>{apiError}</small>
                         {(!isApiFetched && !isExistingItem && !imageUrlInput) && (
                           <button 
                             className="btn btn-primary" 
                             onClick={() => photoInputRef.current?.click()}
-                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '0.6rem', fontSize: '0.9rem' }}
                           >
-                            <Camera size={20} /> 商品の写真を撮る
+                            <Camera size={18} /> 商品の写真を撮る
                           </button>
                         )}
                       </div>
                     )}
-                    {isOcrProcessing && <small style={{ color: 'var(--primary-color)', display: 'block', marginTop: '4px' }}>AIが写真から文字を読み取っています...</small>}
+                    {isOcrProcessing && <small style={{ color: 'var(--primary-color)', display: 'block', marginTop: '2px', fontSize: '0.7rem' }}>AIが写真から文字を読み取っています...</small>}
                   </div>
                 </div>
 
                 {/* 下部：固定操作エリア */}
-                <div style={{ flexShrink: 0, padding: '1rem 1.5rem', backgroundColor: '#fff', borderTop: '1px solid var(--border-color)', boxShadow: '0 -2px 10px rgba(0,0,0,0.05)' }}>
-                  <div className="form-group" style={{ marginBottom: '1rem' }}>
-                    <label style={{ marginBottom: '0.5rem', display: 'block' }}>
-                      数量 
-                      {isExistingItem && originalQuantity !== null && <span style={{ color: 'var(--secondary-color)', fontSize: '0.85rem', marginLeft: '8px' }}>(元の数量: {originalQuantity})</span>}
-                    </label>
-                    <div className="quantity-control-group large">
+                <div style={{ flexShrink: 0, padding: '0.75rem 1.25rem', paddingBottom: '70px', backgroundColor: '#fff', borderTop: '1px solid var(--border-color)', boxShadow: '0 -2px 8px rgba(0,0,0,0.05)' }}>
+                  <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <label style={{ marginBottom: 0, fontSize: '0.9rem' }}>
+                        数量 
+                        {isExistingItem && originalQuantity !== null && <span style={{ color: 'var(--secondary-color)', fontSize: '0.75rem', marginLeft: '6px' }}>(旧: {originalQuantity})</span>}
+                      </label>
+                    </div>
+                    <div className="quantity-control-group large" style={{ marginTop: 0 }}>
                       <button 
                         className="btn btn-qty btn-minus" 
                         onClick={() => setQuantityInput(prev => Math.max(1, prev - 1))}
@@ -491,8 +491,8 @@ function App() {
                     </div>
                   </div>
                   <div className="form-actions large-actions" style={{ marginTop: 0 }}>
-                    <button className="btn btn-secondary btn-large" onClick={handleCancelScan}>キャンセル</button>
-                    <button className="btn btn-primary btn-large" onClick={handleSaveScannedItem} disabled={isFetchingName || isOcrProcessing}>{isExistingItem ? "上書き保存する" : "保存する"}</button>
+                    <button className="btn btn-secondary btn-large" onClick={handleCancelScan} style={{ padding: '0.6rem' }}>キャンセル</button>
+                    <button className="btn btn-primary btn-large" onClick={handleSaveScannedItem} disabled={isFetchingName || isOcrProcessing} style={{ padding: '0.6rem' }}>{isExistingItem ? "上書き保存する" : "保存する"}</button>
                   </div>
                 </div>
               </div>
@@ -655,89 +655,62 @@ function App() {
               </div>
             </div>
 
-            <hr />
-            <div className="form-group">
-              <h3>アプリの更新</h3>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>新しいバージョンが配信されているか手動で確認します。</p>
-              <button className="btn btn-outline" onClick={() => {
-                if ('serviceWorker' in navigator) {
-                  navigator.serviceWorker.getRegistration().then(reg => {
-                    if (reg) {
-                      if (reg.waiting) {
-                        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-                        setTimeout(() => window.location.reload(), 500);
-                        return;
-                      }
-
-                      reg.update().then(() => {
-                        if (reg.waiting) {
-                          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-                          setTimeout(() => window.location.reload(), 500);
-                        } else {
-                          alert("更新のチェックが完了しました。新しいバージョンがある場合は画面下部に通知が表示されます。");
-                        }
-                      }).catch(err => {
-                        alert("更新チェックに失敗しました: " + err);
-                      });
-                    } else {
-                      alert("Service Workerが登録されていません。（PWAとしてインストールされていない可能性があります）");
-                    }
-                  });
-                } else {
-                  alert("お使いのブラウザは更新チェックに対応していません。");
-                }
-              }}>
-                最新バージョンをチェック
-              </button>
-            </div>
-
-            <hr />
-            <div className="danger-zone">
-              <h3>データクリア</h3>
-              <p>保存されているすべてのデータを削除します。</p>
+            <div className="danger-zone mt-4">
+              <h3>リセット</h3>
+              <p>全てのデータを消去し、初期状態に戻します。</p>
               <button className="btn btn-danger" onClick={() => {
-                if (window.confirm("すべてのデータを削除してよろしいですか？この操作は元に戻せません。")) {
+                if (window.confirm("本当に全てのデータを削除しますか？この操作は取り消せません。")) {
                   clearAll();
+                  alert("全てのデータを削除しました。");
                 }
               }}>
-                全データ削除
+                <Trash2 className="icon" /> 全データを削除
               </button>
             </div>
           </div>
         )}
       </main>
 
-      {/* 編集用モーダルダイアログ */}
+      <nav className="bottom-nav">
+        <button 
+          className={`nav-btn ${activeTab === 'scan' ? 'active' : ''}`} 
+          onClick={() => { setActiveTab('scan'); setIsScanning(false); setScannedJan(null); }}
+        >
+          <Camera />
+          <span>スキャン</span>
+        </button>
+        <button 
+          className={`nav-btn ${activeTab === 'list' ? 'active' : ''}`} 
+          onClick={() => setActiveTab('list')}
+        >
+          <ListIcon />
+          <span>リスト</span>
+        </button>
+        <button 
+          className={`nav-btn ${activeTab === 'settings' ? 'active' : ''}`} 
+          onClick={() => setActiveTab('settings')}
+        >
+          <Settings />
+          <span>設定</span>
+        </button>
+      </nav>
+
+      {/* 編集モーダル */}
       {editingItem && (
         <div className="modal-overlay">
           <div className="modal-content card">
             <h3>商品情報の編集</h3>
             <div className="form-group">
-              <label>JANコード</label>
-              <input 
-                type="text" 
-                value={items.find(i => i.id === editingItem.id)?.janCode || ""} 
-                readOnly 
-                className="form-control readonly" 
+              <label>商品名</label>
+              <textarea 
+                value={editingItem.name} 
+                onChange={(e) => setEditingItem({...editingItem, name: e.target.value})} 
+                className="form-control"
+                rows={3}
               />
             </div>
             <div className="form-group">
-              <label>商品分類</label>
-              <div className="category-tags-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                {categories.map(cat => (
-                  <button 
-                    key={cat} 
-                    className={`tag-btn ${editingItem.category === cat ? 'active' : ''}`}
-                    onClick={() => setEditingItem({...editingItem, category: cat})}
-                  >
-                    {cat}
-                  </button>
-                ))}
-                <button className="tag-btn add-btn" onClick={handleEditAddNewCategory}>+ 新規</button>
-              </div>
-            </div>
-            <div className="form-group">
-              <label>メーカー名 / ブランド</label>
+              <label>メーカー名</label>
               <input 
                 type="text" 
                 value={editingItem.manufacturer} 
@@ -746,13 +719,20 @@ function App() {
               />
             </div>
             <div className="form-group">
-              <label>商品名</label>
-              <textarea 
-                value={editingItem.name} 
-                onChange={(e) => setEditingItem({...editingItem, name: e.target.value})} 
-                className="form-control"
-                rows={2}
-              />
+              <label>商品分類</label>
+              <div className="category-tags-container" style={{ display: 'flex', overflowX: 'auto', gap: '0.4rem', marginBottom: '0.25rem', paddingBottom: '4px', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
+                {categories.map(cat => (
+                  <button 
+                    key={cat} 
+                    className={`tag-btn ${editingItem.category === cat ? 'active' : ''}`}
+                    onClick={() => setEditingItem({...editingItem, category: cat})}
+                    style={{ flexShrink: 0 }}
+                  >
+                    {cat}
+                  </button>
+                ))}
+                <button className="tag-btn add-btn" onClick={handleEditAddNewCategory} style={{ flexShrink: 0 }}>+ 新規</button>
+              </div>
             </div>
             <div className="form-actions">
               <button className="btn btn-secondary" onClick={() => setEditingItem(null)}>キャンセル</button>
@@ -761,23 +741,8 @@ function App() {
           </div>
         </div>
       )}
-
-      <nav className="bottom-nav">
-        <button className={`nav-btn ${activeTab === 'scan' ? 'active' : ''}`} onClick={() => setActiveTab('scan')}>
-          <Camera />
-          <span>スキャン</span>
-        </button>
-        <button className={`nav-btn ${activeTab === 'list' ? 'active' : ''}`} onClick={() => setActiveTab('list')}>
-          <ListIcon />
-          <span>リスト</span>
-        </button>
-        <button className={`nav-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-          <Settings />
-          <span>設定</span>
-        </button>
-      </nav>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
