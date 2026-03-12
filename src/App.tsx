@@ -99,33 +99,17 @@ function App() {
     const fetchFromYahoo = async () => {
       if (!clientId) return null;
       const targetUrl = encodeURIComponent(`https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`);
-      const proxies = [
-        `https://api.allorigins.win/get?url=${targetUrl}`,
-        `https://corsproxy.io/?url=${targetUrl}`
-      ];
-      const fetchFromProxy = async (proxyUrl: string) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        try {
-          const response = await fetch(proxyUrl, { signal: controller.signal });
-          if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-          let data;
-          if (proxyUrl.includes('allorigins')) {
-            const proxyData = await response.json();
-            if (!proxyData.contents) throw new Error("Invalid allorigins response");
-            data = JSON.parse(proxyData.contents);
-          } else {
-            data = await response.json();
-          }
-          if (data.Error) throw new Error(`API Error: ${data.Error.Message}`);
-          return data;
-        } finally {
-          clearTimeout(timeoutId);
-        }
-      };
-
+      const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}`;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       try {
-        const data = await Promise.any(proxies.map(p => fetchFromProxy(p)));
+        const response = await fetch(proxyUrl, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        const proxyData = await response.json();
+        if (!proxyData.contents) throw new Error("Invalid allorigins response");
+        const data = JSON.parse(proxyData.contents);
+        
         if (data.hits && data.hits.length > 0) {
           const item = data.hits[0];
           return {
@@ -136,65 +120,72 @@ function App() {
         }
       } catch (error) {
         console.error("Yahoo fetch failed:", error);
+      } finally {
+        clearTimeout(timeoutId);
       }
       return null;
     };
 
     const fetchFromOpenFoodFacts = async () => {
-      const targetUrl = encodeURIComponent(`https://world.openfoodfacts.org/api/v0/product/${janCode}.json`);
-      // Use proxies for Open Food Facts too to avoid CORS and potential direct connection issues
-      const proxies = [
-        `https://api.allorigins.win/get?url=${targetUrl}`,
-        `https://corsproxy.io/?url=${targetUrl}`
-      ];
-      
-      const fetchFromProxy = async (proxyUrl: string) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        try {
-          const response = await fetch(proxyUrl, { signal: controller.signal });
-          if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-          let data;
-          if (proxyUrl.includes('allorigins')) {
-            const proxyData = await response.json();
-            if (!proxyData.contents) throw new Error("Invalid allorigins response");
-            data = JSON.parse(proxyData.contents);
-          } else {
-            data = await response.json();
-          }
-          if (data.status === 1 && data.product) {
-            return {
-              name: data.product.product_name || data.product.product_name_ja || "",
-              manufacturer: data.product.brands || "",
-              imageUrl: data.product.image_url || data.product.image_front_url || null
-            };
-          }
-          throw new Error("Product not found");
-        } finally {
-          clearTimeout(timeoutId);
-        }
-      };
-
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       try {
-        return await Promise.any(proxies.map(p => fetchFromProxy(p)));
+        const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${janCode}.json`, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        const data = await response.json();
+        if (data.status === 1 && data.product) {
+          return {
+            name: data.product.product_name || data.product.product_name_ja || "",
+            manufacturer: data.product.brands || "",
+            imageUrl: data.product.image_url || data.product.image_front_url || null
+          };
+        }
       } catch (error) {
         console.error("Open Food Facts fetch failed:", error);
+      } finally {
+        clearTimeout(timeoutId);
+      }
+      return null;
+    };
+
+    const fetchFromSerpApi = async () => {
+      if (!serpApiKey) return null;
+      try {
+        // JANコードそのもので画像検索（製品情報がヒットすることが多いため）
+        const searchUrl = `https://serpapi.com/search.json?engine=google_images&q=${janCode}&api_key=${serpApiKey}`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
+        
+        const response = await fetch(proxyUrl);
+        if (!response.ok) return null;
+        const data = await response.json();
+        const serpData = JSON.parse(data.contents);
+        
+        if (serpData.images_results && serpData.images_results.length > 0) {
+          const firstResult = serpData.images_results[0];
+          return {
+            name: firstResult.title || "",
+            manufacturer: "", // タイトルから分離するのは難しいため空
+            imageUrl: firstResult.original || firstResult.thumbnail || null
+          };
+        }
+      } catch (error) {
+        console.error("SerpApi fallback fetch failed:", error);
       }
       return null;
     };
 
     try {
-      // Fetch from both in parallel
-      const results = await Promise.all([
-        fetchFromYahoo(),
-        fetchFromOpenFoodFacts()
-      ]);
-      
-      // Return the first successful result
-      const successfulResult = results.find(res => res !== null);
-      if (successfulResult) {
-        return successfulResult;
-      }
+      // 1. Yahoo! APIを試す
+      const yahooResult = await fetchFromYahoo();
+      if (yahooResult) return yahooResult;
+
+      // 2. Open Food Facts APIを試す
+      const offResult = await fetchFromOpenFoodFacts();
+      if (offResult) return offResult;
+
+      // 3. どちらもダメなら SerpApi で検索（最後の手段）
+      const serpResult = await fetchFromSerpApi();
+      if (serpResult) return serpResult;
 
       setApiError("商品が見つかりませんでした。商品名を手入力し、必要なら画像を探してください。");
     } catch (error: any) {
