@@ -22,3 +22,4 @@ node_modules
 .venv
 dist
 .codex/sessions
+.codex/rules/default.rules
