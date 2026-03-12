@@ -150,81 +150,18 @@ function App() {
     setYahooCORSStatus('loading');
     setOffStatus('loading');
 
-    const yahooBaseUrl = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`;
+    const yahooV3Url = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`;
+    const yahooV2Url = `https://shopping.yahooapis.jp/ShoppingWebService/V2/itemSearch?appid=${clientId}&jan_code=${janCode}`;
 
-    const fetchYahooAllOrigins = async () => {
-      if (!clientId || isYahooLimitReached) {
-        setYahooAllStatus(isYahooLimitReached ? 'limit' : 'idle');
-        return null;
-      }
+    const fetchYahoo = async (baseUrl: string, version: 'V2' | 'V3', proxyBase: 'allorigins' | 'corsproxy') => {
+      if (!clientId || isYahooLimitReached) return null;
       
-      const targetUrl = encodeURIComponent(`${yahooBaseUrl}&_=${Date.now()}`);
-      const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}&cache=${Date.now()}`;
+      const targetUrl = encodeURIComponent(`${baseUrl}&_=${Date.now()}`);
+      const proxyUrl = proxyBase === 'allorigins' 
+        ? `https://api.allorigins.win/get?url=${targetUrl}&cache=${Date.now()}`
+        : `https://corsproxy.io/?url=${targetUrl}&cache=${Date.now()}`;
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-      try {
-        const response = await fetch(proxyUrl, { signal: controller.signal });
-        if (!response.ok) {
-          setYahooAllStatus('error');
-          return null;
-        }
-        const proxyData = await response.json();
-        if (!proxyData.contents) {
-          setYahooAllStatus('error');
-          return null;
-        }
-        
-        let data;
-        try {
-          data = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
-        } catch (e) {
-          console.error("Failed to parse AllOrigins content:", e);
-          setYahooAllStatus('error');
-          return null;
-        }
-        
-        if (data.Error) {
-          const errCode = String(data.Error.Code);
-          if (errCode === "403" || errCode === "429") {
-            console.warn(`Yahoo AllOrigins Limit/Forbidden: ${errCode} - ${data.Error.Message}`);
-            setIsYahooLimitReached(true);
-            setYahooAllStatus('limit');
-            setYahooCORSStatus('limit');
-          } else {
-            setYahooAllStatus('error');
-          }
-          return null;
-        }
-
-        if (data.hits && data.hits.length > 0) {
-          const item = data.hits[0];
-          setYahooAllStatus('success');
-          return {
-            name: item.name,
-            manufacturer: item.brand?.name || "",
-            imageUrl: item.image?.medium || item.image?.small || null,
-            source: "Yahoo! (AllOrigins)"
-          };
-        }
-        setYahooAllStatus('error');
-      } catch (error) {
-        console.error("Yahoo AllOrigins fetch failed:", error);
-        setYahooAllStatus('error');
-      } finally {
-        clearTimeout(timeoutId);
-      }
-      return null;
-    };
-
-    const fetchYahooCORSProxy = async () => {
-      if (!clientId || isYahooLimitReached) {
-        setYahooCORSStatus(isYahooLimitReached ? 'limit' : 'idle');
-        return null;
-      }
-      
-      const targetUrl = encodeURIComponent(`${yahooBaseUrl}&_=${Date.now()}`);
-      const proxyUrl = `https://corsproxy.io/?url=${targetUrl}&cache=${Date.now()}`;
+      const statusSetter = proxyBase === 'allorigins' ? setYahooAllStatus : setYahooCORSStatus;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -232,44 +169,57 @@ function App() {
         const response = await fetch(proxyUrl, { signal: controller.signal });
         if (!response.ok) {
           if (response.status === 403 || response.status === 429) {
-            console.warn(`Yahoo CORSProxy Limit/Forbidden: ${response.status}`);
             setIsYahooLimitReached(true);
             setYahooAllStatus('limit');
             setYahooCORSStatus('limit');
-          } else {
-            setYahooCORSStatus('error');
-          }
-          return null;
-        }
-        const data = await response.json();
-        
-        if (data.Error) {
-          const errCode = String(data.Error.Code);
-          if (errCode === "403" || errCode === "429") {
-            console.warn(`Yahoo CORSProxy API Limit/Forbidden: ${errCode} - ${data.Error.Message}`);
-            setIsYahooLimitReached(true);
-            setYahooAllStatus('limit');
-            setYahooCORSStatus('limit');
-          } else {
-            setYahooCORSStatus('error');
           }
           return null;
         }
 
-        if (data.hits && data.hits.length > 0) {
+        const proxyData = await response.json();
+        let data;
+        if (proxyBase === 'allorigins') {
+          if (!proxyData.contents) return null;
+          data = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
+        } else {
+          data = proxyData;
+        }
+        
+        if (data.Error) {
+          const errCode = String(data.Error.Code);
+          if (errCode === "403" || errCode === "429") {
+            setIsYahooLimitReached(true);
+            setYahooAllStatus('limit');
+            setYahooCORSStatus('limit');
+          }
+          return null;
+        }
+
+        // V3形式のパース
+        if (version === 'V3' && data.hits && data.hits.length > 0) {
           const item = data.hits[0];
-          setYahooCORSStatus('success');
+          statusSetter('success');
           return {
             name: item.name,
             manufacturer: item.brand?.name || "",
             imageUrl: item.image?.medium || item.image?.small || null,
-            source: "Yahoo! (CORSProxy)"
+            source: `Yahoo! V3 (${proxyBase === 'allorigins' ? 'AllOrigins' : 'CORSProxy'})`
           };
         }
-        setYahooCORSStatus('error');
+
+        // V2形式のパース (ResultSet.Result[0])
+        if (version === 'V2' && data.ResultSet && data.ResultSet.totalResultsAvailable > 0) {
+          const item = data.ResultSet["0"].Result["0"];
+          statusSetter('success');
+          return {
+            name: item.Name,
+            manufacturer: item.Brand?.Name || "",
+            imageUrl: item.Image?.Medium || item.Image?.Small || null,
+            source: `Yahoo! V2 (${proxyBase === 'allorigins' ? 'AllOrigins' : 'CORSProxy'})`
+          };
+        }
       } catch (error) {
-        console.error("Yahoo CORSProxy fetch failed:", error);
-        setYahooCORSStatus('error');
+        console.error(`Yahoo ${version} ${proxyBase} failed:`, error);
       } finally {
         clearTimeout(timeoutId);
       }
@@ -306,16 +256,18 @@ function App() {
     };
 
     try {
-      // 3つの経路を同時に取得開始
-      const [yahooAll, yahooCORS, offResult] = await Promise.all([
-        fetchYahooAllOrigins(),
-        fetchYahooCORSProxy(),
+      // 全ての経路を同時に取得開始 (V2を優先的に試す)
+      const [yahooV2All, yahooV2CORS, yahooV3All, offResult] = await Promise.all([
+        fetchYahoo(yahooV2Url, 'V2', 'allorigins'),
+        fetchYahoo(yahooV2Url, 'V2', 'corsproxy'),
+        fetchYahoo(yahooV3Url, 'V3', 'allorigins'),
         fetchFromOpenFoodFacts()
       ]);
       
-      // 優先順位: Yahoo (どちらか) > Open Food Facts
-      if (yahooAll) return yahooAll;
-      if (yahooCORS) return yahooCORS;
+      // 優先順位: Yahoo V2 > Yahoo V3 > Open Food Facts
+      if (yahooV2All) return yahooV2All;
+      if (yahooV2CORS) return yahooV2CORS;
+      if (yahooV3All) return yahooV3All;
       if (offResult) return offResult;
 
       setApiError("商品が見つかりませんでした。商品名を手入力し、必要なら画像を探してください。");
