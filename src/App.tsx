@@ -46,12 +46,22 @@ function App() {
       return null;
     }
 
-    const searchUrl = `https://serpapi.com/search.json?engine=google_images&q=${encodeURIComponent(query)}&api_key=${serpApiKey}`;
+    // 公式サンプルに基づいた日本向けパラメータを追加
+    const params = new URLSearchParams({
+      engine: "google_images",
+      location: "Japan",
+      google_domain: "google.co.jp",
+      hl: "ja",
+      gl: "jp",
+      q: query,
+      api_key: serpApiKey,
+      _ : Date.now().toString() // キャッシュ回避
+    });
+
+    const searchUrl = `https://serpapi.com/search.json?${params.toString()}`;
     
     const fetchViaProxy = async (proxyBaseUrl: string) => {
-      // タイムスタンプを SerpApi のクエリパラメータとして直接追加
-      const urlWithBuster = `${searchUrl}&_=${Date.now()}`;
-      const targetUrl = encodeURIComponent(urlWithBuster);
+      const targetUrl = encodeURIComponent(searchUrl);
       const proxyUrl = proxyBaseUrl + targetUrl;
       
       const controller = new AbortController();
@@ -64,7 +74,6 @@ function App() {
         if (proxyUrl.includes('allorigins')) {
           const proxyData = await response.json();
           if (!proxyData.contents) throw new Error("Invalid allorigins response");
-          // allorigins の中身が文字列としてパースされることを期待
           data = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
         } else {
           data = await response.json();
@@ -195,8 +204,19 @@ function App() {
         // Yahoo/OFF との同時リクエストによるプロキシ制限を避けるため、わずかに遅延させる
         await new Promise(resolve => setTimeout(resolve, 3000));
         
-        // JANコードそのもので画像検索（製品情報がヒットすることが多いため）
-        const searchUrl = `https://serpapi.com/search.json?engine=google_images&q=${janCode}&api_key=${serpApiKey}`;
+        // 公式サンプルに基づいた日本向けパラメータを追加
+        const params = new URLSearchParams({
+          engine: "google_images",
+          location: "Japan",
+          google_domain: "google.co.jp",
+          hl: "ja",
+          gl: "jp",
+          q: janCode,
+          api_key: serpApiKey,
+          _ : Date.now().toString()
+        });
+
+        const searchUrl = `https://serpapi.com/search.json?${params.toString()}`;
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
         
         const response = await fetch(proxyUrl);
