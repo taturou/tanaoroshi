@@ -49,11 +49,10 @@ function App() {
     const searchUrl = `https://serpapi.com/search.json?engine=google_images&q=${encodeURIComponent(query)}&api_key=${serpApiKey}`;
     
     const fetchViaProxy = async (proxyBaseUrl: string) => {
+      // タイムスタンプを SerpApi のクエリパラメータとして直接追加
       const urlWithBuster = `${searchUrl}&_=${Date.now()}`;
       const targetUrl = encodeURIComponent(urlWithBuster);
-      const proxyUrl = proxyBaseUrl.includes('allorigins') 
-        ? `${proxyBaseUrl}${targetUrl}`
-        : `${proxyBaseUrl}${targetUrl}`;
+      const proxyUrl = proxyBaseUrl + targetUrl;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); 
@@ -65,12 +64,13 @@ function App() {
         if (proxyUrl.includes('allorigins')) {
           const proxyData = await response.json();
           if (!proxyData.contents) throw new Error("Invalid allorigins response");
-          data = JSON.parse(proxyData.contents);
+          // allorigins の中身が文字列としてパースされることを期待
+          data = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
         } else {
           data = await response.json();
         }
         
-        if (data.images_results && data.images_results.length > 0) {
+        if (data && data.images_results && data.images_results.length > 0) {
           return data.images_results[0].original || data.images_results[0].thumbnail || null;
         }
         throw new Error("No image results");
@@ -192,6 +192,9 @@ function App() {
     const fetchFromSerpApi = async () => {
       if (!serpApiKey) return null;
       try {
+        // Yahoo/OFF との同時リクエストによるプロキシ制限を避けるため、わずかに遅延させる
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
         // JANコードそのもので画像検索（製品情報がヒットすることが多いため）
         const searchUrl = `https://serpapi.com/search.json?engine=google_images&q=${janCode}&api_key=${serpApiKey}`;
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
