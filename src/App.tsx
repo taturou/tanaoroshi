@@ -299,13 +299,10 @@ function App() {
   return (
     <div className="app-container">
       <ReloadPrompt />
-      <header className="app-header">
-        <h1>棚卸しアプリ</h1>
-      </header>
-      
+
       <main className="app-main">
         {activeTab === 'scan' && (
-          <div className="scan-section" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div className="scan-section" style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {!scannedJan ? (
               <div className="scanner-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingBottom: '60px' }}>
                 {isScanning ? (
@@ -554,77 +551,79 @@ function App() {
         )}
 
         {activeTab === 'settings' && (
-          <div className="settings-section card" style={{ margin: '1rem', paddingBottom: '80px' }}>
-            <h2>設定</h2>
-            
-            <div className="form-group">
-              <label>担当者名</label>
-              <input 
-                type="text" 
-                value={userName} 
-                onChange={(e) => setUserName(e.target.value)} 
-                placeholder="ユーザ名を入力（空欄可）"
-                className="form-control" 
-              />
-              <small>※ スキャンした商品データの「ユーザ名」列に記録されます。</small>
-            </div>
-
-            <div className="form-group mt-4">
-              <label>Yahoo!ショッピングAPI Client ID</label>
-              <input 
-                type="text" 
-                value={clientId} 
-                onChange={(e) => setClientId(e.target.value)} 
-                placeholder="Client ID を入力してください"
-                className="form-control" 
-              />
-              <small>※ 登録するとJANコードから商品名と画像を自動取得します。</small>
-            </div>
-
-            <hr />
-            <div className="form-group">
-              <h3>データ入出力</h3>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>記録データをCSV形式で出力したり、外部のCSVデータを読み込んでリストを復元・合算できます。</p>
+          <div className="settings-section">
+            <div className="settings-section-inner card">
+              <h2>設定</h2>
               
-              <div className="form-actions" style={{ flexDirection: 'column', gap: '0.5rem' }}>
-                <button className="btn btn-primary" onClick={handleExportCSV} disabled={items.length === 0}>
-                  <Download className="icon" /> CSVを出力する
-                </button>
+              <div className="form-group">
+                <label>担当者名</label>
+                <input 
+                  type="text" 
+                  value={userName} 
+                  onChange={(e) => setUserName(e.target.value)} 
+                  placeholder="ユーザ名を入力（空欄可）"
+                  className="form-control" 
+                />
+                <small>※ スキャンした商品データの「ユーザ名」列に記録されます。</small>
+              </div>
+
+              <div className="form-group mt-4">
+                <label>Yahoo!ショッピングAPI Client ID</label>
+                <input 
+                  type="text" 
+                  value={clientId} 
+                  onChange={(e) => setClientId(e.target.value)} 
+                  placeholder="Client ID を入力してください"
+                  className="form-control" 
+                />
+                <small>※ 登録するとJANコードから商品名と画像を自動取得します。</small>
+              </div>
+
+              <hr />
+              <div className="form-group">
+                <h3>データ入出力</h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>記録データをCSV形式で出力したり、外部のCSVデータを読み込んでリストを復元・合算できます。</p>
                 
-                <label className="btn btn-outline" style={{ display: 'inline-flex', justifyContent: 'center' }}>
-                  <Upload className="icon" /> CSVを読み込む
-                  <input 
-                    type="file" 
-                    accept=".csv" 
-                    onChange={handleImportCSV} 
-                    style={{ display: 'none' }} 
-                    ref={fileInputRef}
-                  />
-                </label>
+                <div className="form-actions" style={{ flexDirection: 'column', gap: '0.5rem' }}>
+                  <button className="btn btn-primary" onClick={handleExportCSV} disabled={items.length === 0}>
+                    <Download className="icon" /> CSVを出力する
+                  </button>
+                  
+                  <label className="btn btn-outline" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+                    <Upload className="icon" /> CSVを読み込む
+                    <input 
+                      type="file" 
+                      accept=".csv" 
+                      onChange={handleImportCSV} 
+                      style={{ display: 'none' }} 
+                      ref={fileInputRef}
+                    />
+                  </label>
+                </div>
               </div>
-            </div>
 
-            <div className="form-group mt-4">
-              <h3>システム</h3>
-              <div className="form-actions" style={{ flexDirection: 'column', gap: '0.5rem' }}>
-                <button className="btn btn-outline" onClick={handleCheckUpdate} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-                  <RefreshCw className="icon" /> アップデートを確認する
+              <div className="form-group mt-4">
+                <h3>システム</h3>
+                <div className="form-actions" style={{ flexDirection: 'column', gap: '0.5rem' }}>
+                  <button className="btn btn-outline" onClick={handleCheckUpdate} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                    <RefreshCw className="icon" /> アップデートを確認する
+                  </button>
+                </div>
+                <small>※ 最新バージョンがないか確認します。ブラウザのキャッシュを更新します。</small>
+              </div>
+
+              <div className="danger-zone mt-4">
+                <h3>リセット</h3>
+                <p>全てのデータを消去し、初期状態に戻します。</p>
+                <button className="btn btn-danger" onClick={() => {
+                  if (window.confirm("本当に全てのデータを削除しますか？この操作は取り消せません。")) {
+                    clearAll();
+                    alert("全てのデータを削除しました。");
+                  }
+                }}>
+                  <Trash2 className="icon" /> 全データを削除
                 </button>
               </div>
-              <small>※ 最新バージョンがないか確認します。ブラウザのキャッシュを更新します。</small>
-            </div>
-
-            <div className="danger-zone mt-4">
-              <h3>リセット</h3>
-              <p>全てのデータを消去し、初期状態に戻します。</p>
-              <button className="btn btn-danger" onClick={() => {
-                if (window.confirm("本当に全てのデータを削除しますか？この操作は取り消せません。")) {
-                  clearAll();
-                  alert("全てのデータを削除しました。");
-                }
-              }}>
-                <Trash2 className="icon" /> 全データを削除
-              </button>
             </div>
           </div>
         )}

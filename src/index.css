@@ -38,23 +38,9 @@ input, textarea, [contenteditable="true"] {
   overflow: hidden;
 }
 
-.app-header {
-  background-color: var(--primary-color);
-  color: white;
-  padding: 0.75rem 1rem;
-  text-align: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  z-index: 10;
-  flex-shrink: 0;
-}
-
-.app-header h1 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
 .app-main {
   flex: 1;
+  min-height: 0;
   padding: 0;
   overflow: hidden;
   display: flex;
@@ -415,8 +401,26 @@ input, textarea, [contenteditable="true"] {
   padding: 1.5rem 1rem;
 }
 
+.scan-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 .scanner-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   text-align: center;
+}
+
+.list-section {
+  flex: 1;
+  min-height: 0;
 }
 
 /* List Section */
@@ -496,6 +500,18 @@ input, textarea, [contenteditable="true"] {
 }
 
 /* Settings Section */
+.settings-section {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1rem 80px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.settings-section-inner {
+  margin: 0;
+}
+
 .danger-zone {
   border: 1px solid var(--danger-color);
   border-radius: 8px;
