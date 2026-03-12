@@ -111,71 +111,68 @@ function App() {
       if (!clientId) return null;
       const baseUrl = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`;
       
-      const fetchDirect = async () => {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3000);
-        try {
-          const response = await fetch(baseUrl, { signal: controller.signal });
-          clearTimeout(timeout);
-          if (response.ok) {
-            const data = await response.json();
-            if (data.hits && data.hits.length > 0) return data;
+      // 1. まず直接通信を試みる (CORSで失敗する可能性が高いが、通れば最速)
+      try {
+        const directController = new AbortController();
+        const directTimeout = setTimeout(() => directController.abort(), 3000);
+        const directResponse = await fetch(baseUrl, { signal: directController.signal });
+        clearTimeout(directTimeout);
+        if (directResponse.ok) {
+          const data = await directResponse.json();
+          if (data.hits && data.hits.length > 0) {
+            const item = data.hits[0];
+            return {
+              name: item.name,
+              manufacturer: item.brand?.name || "",
+              imageUrl: item.image?.medium || item.image?.small || null,
+              source: "Yahoo!ショッピング"
+            };
           }
-          throw new Error("Direct fetch failed");
-        } catch (e) {
-          clearTimeout(timeout);
-          throw e;
         }
-      };
+      } catch (e) {
+        // 直接通信失敗
+      }
 
-      const fetchViaProxy = async (proxyBaseUrl: string) => {
+      // 2. プロキシ経由を試みる
+      const proxies = [
+        'https://api.allorigins.win/get?url=',
+        'https://corsproxy.io/?url='
+      ];
+
+      for (const proxyBaseUrl of proxies) {
         const baseUrlWithBuster = `${baseUrl}&_=${Date.now()}`;
         const targetUrl = encodeURIComponent(baseUrlWithBuster);
-        const proxyUrl = proxyBaseUrl.includes('allorigins') 
-          ? `${proxyBaseUrl}${targetUrl}`
-          : `${proxyBaseUrl}${targetUrl}`;
+        const proxyUrl = proxyBaseUrl + targetUrl;
         
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
         try {
           const response = await fetch(proxyUrl, { signal: controller.signal });
-          if (!response.ok) throw new Error(`Proxy Error: ${response.status}`);
+          if (!response.ok) continue;
           
           let data;
           if (proxyUrl.includes('allorigins')) {
             const proxyData = await response.json();
-            if (!proxyData.contents) throw new Error("Invalid allorigins response");
-            data = JSON.parse(proxyData.contents);
+            if (!proxyData.contents) continue;
+            data = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
           } else {
             data = await response.json();
           }
           
-          if (data.hits && data.hits.length > 0) return data;
-          throw new Error("No hits via proxy");
+          if (data && data.hits && data.hits.length > 0) {
+            const item = data.hits[0];
+            return {
+              name: item.name,
+              manufacturer: item.brand?.name || "",
+              imageUrl: item.image?.medium || item.image?.small || null,
+              source: "Yahoo!ショッピング"
+            };
+          }
+        } catch (error) {
+          console.error(`Yahoo proxy fetch failed for ${proxyUrl}:`, error);
         } finally {
           clearTimeout(timeoutId);
         }
-      };
-
-      try {
-        // 直接通信と2つのプロキシを同時に開始
-        const data = await Promise.any([
-          fetchDirect(),
-          fetchViaProxy('https://api.allorigins.win/get?url='),
-          fetchViaProxy('https://corsproxy.io/?url=')
-        ]);
-
-        if (data && data.hits && data.hits.length > 0) {
-          const item = data.hits[0];
-          return {
-            name: item.name,
-            manufacturer: item.brand?.name || "",
-            imageUrl: item.image?.medium || item.image?.small || null,
-            source: "Yahoo!ショッピング"
-          };
-        }
-      } catch (error) {
-        console.error("All Yahoo fetch attempts failed:", error);
       }
       return null;
     };
@@ -203,65 +200,16 @@ function App() {
       return null;
     };
 
-    const fetchFromSerpApi = async () => {
-      if (!serpApiKey) return null;
-      try {
-        // Yahoo/OFF との同時リクエストによるプロキシ制限を避けるため、わずかに遅延させる
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // 公式サンプルに基づいた日本向けパラメータを追加
-        const params = new URLSearchParams({
-          engine: "google_images",
-          location: "Japan",
-          google_domain: "google.co.jp",
-          hl: "ja",
-          gl: "jp",
-          q: janCode,
-          api_key: serpApiKey,
-          _ : Date.now().toString()
-        });
-
-        const searchUrl = `https://serpapi.com/search.json?${params.toString()}`;
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
-        
-        const response = await fetch(proxyUrl);
-        if (!response.ok) return null;
-        const proxyData = await response.json();
-        
-        let serpData;
-        if (proxyData.contents) {
-          serpData = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
-        } else {
-          serpData = proxyData;
-        }
-        
-        if (serpData && serpData.images_results && Array.isArray(serpData.images_results) && serpData.images_results.length > 0) {
-          const firstResult = serpData.images_results[0];
-          return {
-            name: firstResult.title || "",
-            manufacturer: "", 
-            imageUrl: firstResult.original || firstResult.thumbnail || null,
-            source: "SerpApi (Google Images)"
-          };
-        }
-      } catch (error) {
-        console.error("SerpApi fallback fetch failed:", error);
-      }
-      return null;
-    };
-
     try {
-      // 全ての経路で同時に取得を開始
-      const [yahooResult, offResult, serpResult] = await Promise.all([
+      // Yahoo と Open Food Facts を同時に取得
+      const [yahooResult, offResult] = await Promise.all([
         fetchFromYahoo(),
-        fetchFromOpenFoodFacts(),
-        fetchFromSerpApi()
+        fetchFromOpenFoodFacts()
       ]);
       
-      // 優先順位に従って結果を採用する: Yahoo > Open Food Facts > SerpApi
+      // 優先順位に従って結果を採用する: Yahoo > Open Food Facts
       if (yahooResult) return yahooResult;
       if (offResult) return offResult;
-      if (serpResult) return serpResult;
 
       setApiError("商品が見つかりませんでした。商品名を手入力し、必要なら画像を探してください。");
     } catch (error: any) {
