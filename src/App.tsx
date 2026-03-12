@@ -67,11 +67,10 @@ function App() {
     }
   };
 
-  const fetchProductInfo = async (janCode: string, retries = 2): Promise<{name: string, manufacturer: string, imageUrl: string | null} | null> => {
+  const fetchProductInfo = async (janCode: string): Promise<{name: string, manufacturer: string, imageUrl: string | null} | null> => {
     setApiError(null);
     setIsFetchingName(true);
 
-    // Yahoo! APIからの取得を試行する関数
     const fetchFromYahoo = async () => {
       if (!clientId) return null;
       const targetUrl = encodeURIComponent(`https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`);
@@ -81,7 +80,7 @@ function App() {
       ];
       const fetchFromProxy = async (proxyUrl: string) => {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
         try {
           const response = await fetch(proxyUrl, { signal: controller.signal });
           if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
@@ -99,39 +98,60 @@ function App() {
           clearTimeout(timeoutId);
         }
       };
-      for (let attempt = 0; attempt <= retries; attempt++) {
-        try {
-          const data = await Promise.any(proxies.map(p => fetchFromProxy(p)));
-          if (data.hits && data.hits.length > 0) {
-            const item = data.hits[0];
-            return {
-              name: item.name,
-              manufacturer: item.brand?.name || "",
-              imageUrl: item.image?.medium || item.image?.small || null
-            };
-          }
-          return null; // Yahooで見つからなかった
-        } catch (error) {
-          if (attempt === retries) throw error;
+
+      try {
+        const data = await Promise.any(proxies.map(p => fetchFromProxy(p)));
+        if (data.hits && data.hits.length > 0) {
+          const item = data.hits[0];
+          return {
+            name: item.name,
+            manufacturer: item.brand?.name || "",
+            imageUrl: item.image?.medium || item.image?.small || null
+          };
         }
-        if (attempt < retries) await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.error("Yahoo fetch failed:", error);
       }
       return null;
     };
 
-    // Open Food Facts APIからの取得を試行する関数
     const fetchFromOpenFoodFacts = async () => {
-      try {
-        const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${janCode}.json`);
-        if (!response.ok) return null;
-        const data = await response.json();
-        if (data.status === 1 && data.product) {
-          return {
-            name: data.product.product_name || data.product.product_name_ja || "",
-            manufacturer: data.product.brands || "",
-            imageUrl: data.product.image_url || data.product.image_front_url || null
-          };
+      const targetUrl = encodeURIComponent(`https://world.openfoodfacts.org/api/v0/product/${janCode}.json`);
+      // Use proxies for Open Food Facts too to avoid CORS and potential direct connection issues
+      const proxies = [
+        `https://api.allorigins.win/get?url=${targetUrl}`,
+        `https://corsproxy.io/?url=${targetUrl}`
+      ];
+      
+      const fetchFromProxy = async (proxyUrl: string) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        try {
+          const response = await fetch(proxyUrl, { signal: controller.signal });
+          if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+          let data;
+          if (proxyUrl.includes('allorigins')) {
+            const proxyData = await response.json();
+            if (!proxyData.contents) throw new Error("Invalid allorigins response");
+            data = JSON.parse(proxyData.contents);
+          } else {
+            data = await response.json();
+          }
+          if (data.status === 1 && data.product) {
+            return {
+              name: data.product.product_name || data.product.product_name_ja || "",
+              manufacturer: data.product.brands || "",
+              imageUrl: data.product.image_url || data.product.image_front_url || null
+            };
+          }
+          throw new Error("Product not found");
+        } finally {
+          clearTimeout(timeoutId);
         }
+      };
+
+      try {
+        return await Promise.any(proxies.map(p => fetchFromProxy(p)));
       } catch (error) {
         console.error("Open Food Facts fetch failed:", error);
       }
@@ -139,18 +159,16 @@ function App() {
     };
 
     try {
-      // 1. Yahoo! APIを試す
-      const yahooResult = await fetchFromYahoo();
-      if (yahooResult) {
-        setIsFetchingName(false);
-        return yahooResult;
-      }
-
-      // 2. Open Food Facts APIを試す (Yahooで見つからなかった場合)
-      const offResult = await fetchFromOpenFoodFacts();
-      if (offResult) {
-        setIsFetchingName(false);
-        return offResult;
+      // Fetch from both in parallel
+      const results = await Promise.all([
+        fetchFromYahoo(),
+        fetchFromOpenFoodFacts()
+      ]);
+      
+      // Return the first successful result
+      const successfulResult = results.find(res => res !== null);
+      if (successfulResult) {
+        return successfulResult;
       }
 
       setApiError("商品が見つかりませんでした。商品名を手入力し、必要なら画像を探してください。");
