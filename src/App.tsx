@@ -23,7 +23,6 @@ function App() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isExistingItem, setIsExistingItem] = useState<boolean>(false);
   const [originalQuantity, setOriginalQuantity] = useState<number | null>(null);
-  const [isApiFetched, setIsApiFetched] = useState<boolean>(false);
   const [isProductLookupFailed, setIsProductLookupFailed] = useState(false);
   const [isSearchingImage, setIsSearchingImage] = useState(false);
   const [imageSearchError, setImageSearchError] = useState<string | null>(null);
@@ -172,7 +171,6 @@ function App() {
     setIsScanning(false);
     setScannedJan(decodedText);
     setApiError(null);
-    setIsApiFetched(false);
     setIsProductLookupFailed(false);
     setImageSearchError(null);
     
@@ -201,7 +199,6 @@ function App() {
         setProductNameInput(info.name);
         setManufacturerInput(info.manufacturer);
         setImageUrlInput(info.imageUrl);
-        setIsApiFetched(true);
         setIsProductLookupFailed(false);
       } else {
         setIsProductLookupFailed(true);
@@ -286,7 +283,6 @@ function App() {
     setImageUrlInput(null);
     setIsExistingItem(false);
     setOriginalQuantity(null);
-    setIsApiFetched(false);
     setIsProductLookupFailed(false);
     setImageSearchError(null);
   };
@@ -296,7 +292,6 @@ function App() {
       setScannedJan(null);
       setIsExistingItem(false);
       setOriginalQuantity(null);
-      setIsApiFetched(false);
       setImageUrlInput(null);
       setCategoryInput("");
       setIsProductLookupFailed(false);
