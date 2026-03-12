@@ -3,7 +3,7 @@ import { useInventory } from './hooks/useInventory'
 import { useSettings } from './hooks/useSettings'
 import { Scanner } from './components/Scanner'
 import { ReloadPrompt } from './components/ReloadPrompt'
-import { Camera, List as ListIcon, Settings, Download, Upload, Trash2, Loader2, Edit2, Image as ImageIcon, X, RefreshCw } from 'lucide-react'
+import { Camera, List as ListIcon, Settings, Download, Upload, Trash2, Loader2, Edit2, Image as ImageIcon, X, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react'
 import './index.css'
 
 function App() {
@@ -28,6 +28,12 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [scannedInfoSource, setScannedInfoSource] = useState<string | null>(null);
   const [forceUpdateRequestId, setForceUpdateRequestId] = useState(0);
+
+  // 取得経路ごとのステータス管理
+  const [yahooAllStatus, setYahooAllStatus] = useState<'idle' | 'loading' | 'success' | 'error' | 'limit'>('idle');
+  const [yahooCORSStatus, setYahooCORSStatus] = useState<'idle' | 'loading' | 'success' | 'error' | 'limit'>('idle');
+  const [offStatus, setOffStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [isYahooLimitReached, setIsYahooLimitReached] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,11 +112,18 @@ function App() {
   const fetchProductInfo = async (janCode: string): Promise<{name: string, manufacturer: string, imageUrl: string | null, source: string} | null> => {
     setApiError(null);
     setIsFetchingName(true);
+    setYahooAllStatus('loading');
+    setYahooCORSStatus('loading');
+    setOffStatus('loading');
 
     const yahooBaseUrl = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`;
 
     const fetchYahooAllOrigins = async () => {
-      if (!clientId) return null;
+      if (!clientId || isYahooLimitReached) {
+        setYahooAllStatus(isYahooLimitReached ? 'limit' : 'idle');
+        return null;
+      }
+      
       const targetUrl = encodeURIComponent(`${yahooBaseUrl}&_=${Date.now()}`);
       const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}`;
       
@@ -118,13 +131,32 @@ function App() {
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       try {
         const response = await fetch(proxyUrl, { signal: controller.signal });
-        if (!response.ok) return null;
+        if (!response.ok) {
+          setYahooAllStatus('error');
+          return null;
+        }
         const proxyData = await response.json();
-        if (!proxyData.contents) return null;
+        if (!proxyData.contents) {
+          setYahooAllStatus('error');
+          return null;
+        }
+        
         const data = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
         
+        if (data.Error) {
+          if (data.Error.Code === "403" || data.Error.Code === "429") {
+            setIsYahooLimitReached(true);
+            setYahooAllStatus('limit');
+            setYahooCORSStatus('limit');
+          } else {
+            setYahooAllStatus('error');
+          }
+          return null;
+        }
+
         if (data.hits && data.hits.length > 0) {
           const item = data.hits[0];
+          setYahooAllStatus('success');
           return {
             name: item.name,
             manufacturer: item.brand?.name || "",
@@ -132,8 +164,10 @@ function App() {
             source: "Yahoo! (AllOrigins)"
           };
         }
+        setYahooAllStatus('error');
       } catch (error) {
         console.error("Yahoo AllOrigins fetch failed:", error);
+        setYahooAllStatus('error');
       } finally {
         clearTimeout(timeoutId);
       }
@@ -141,7 +175,11 @@ function App() {
     };
 
     const fetchYahooCORSProxy = async () => {
-      if (!clientId) return null;
+      if (!clientId || isYahooLimitReached) {
+        setYahooCORSStatus(isYahooLimitReached ? 'limit' : 'idle');
+        return null;
+      }
+      
       const targetUrl = encodeURIComponent(`${yahooBaseUrl}&_=${Date.now()}`);
       const proxyUrl = `https://corsproxy.io/?url=${targetUrl}`;
       
@@ -149,11 +187,32 @@ function App() {
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       try {
         const response = await fetch(proxyUrl, { signal: controller.signal });
-        if (!response.ok) return null;
+        if (!response.ok) {
+          if (response.status === 403 || response.status === 429) {
+            setIsYahooLimitReached(true);
+            setYahooAllStatus('limit');
+            setYahooCORSStatus('limit');
+          } else {
+            setYahooCORSStatus('error');
+          }
+          return null;
+        }
         const data = await response.json();
         
+        if (data.Error) {
+          if (data.Error.Code === "403" || data.Error.Code === "429") {
+            setIsYahooLimitReached(true);
+            setYahooAllStatus('limit');
+            setYahooCORSStatus('limit');
+          } else {
+            setYahooCORSStatus('error');
+          }
+          return null;
+        }
+
         if (data.hits && data.hits.length > 0) {
           const item = data.hits[0];
+          setYahooCORSStatus('success');
           return {
             name: item.name,
             manufacturer: item.brand?.name || "",
@@ -161,8 +220,10 @@ function App() {
             source: "Yahoo! (CORSProxy)"
           };
         }
+        setYahooCORSStatus('error');
       } catch (error) {
         console.error("Yahoo CORSProxy fetch failed:", error);
+        setYahooCORSStatus('error');
       } finally {
         clearTimeout(timeoutId);
       }
@@ -174,9 +235,13 @@ function App() {
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       try {
         const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${janCode}.json`, { signal: controller.signal });
-        if (!response.ok) return null;
+        if (!response.ok) {
+          setOffStatus('error');
+          return null;
+        }
         const data = await response.json();
         if (data.status === 1 && data.product) {
+          setOffStatus('success');
           return {
             name: data.product.product_name || data.product.product_name_ja || "",
             manufacturer: data.product.brands || "",
@@ -184,8 +249,10 @@ function App() {
             source: "Open Food Facts"
           };
         }
+        setOffStatus('error');
       } catch (error) {
         console.error("Open Food Facts fetch failed:", error);
+        setOffStatus('error');
       } finally {
         clearTimeout(timeoutId);
       }
@@ -222,6 +289,9 @@ function App() {
     setApiError(null);
     setImageSearchError(null);
     setScannedInfoSource(null);
+    setYahooAllStatus('idle');
+    setYahooCORSStatus('idle');
+    setOffStatus('idle');
     
     const existingItem = items.find(item => item.janCode === decodedText);
     
@@ -546,12 +616,40 @@ function App() {
                         <Loader2 className="spinner" style={{ position: 'absolute', right: '10px', top: '10px', color: 'var(--primary-color)' }} />
                       )}
                     </div>
-                    {scannedInfoSource && !isFetchingName && (
-                      <div style={{ marginTop: '4px' }}>
-                        <span className="badge badge-info" style={{ fontSize: '0.7rem', opacity: 0.8 }}>取得元: {scannedInfoSource}</span>
+                    {scannedJan && (
+                      <div className="source-status-container" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {[
+                          { id: 'yahooAll', name: 'Yahoo! (AllOrigins)', status: yahooAllStatus },
+                          { id: 'yahooCORS', name: 'Yahoo! (CORSProxy)', status: yahooCORSStatus },
+                          { id: 'off', name: 'Open Food Facts', status: offStatus }
+                        ].map((source) => (
+                          <div key={source.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem' }}>
+                            {source.status === 'loading' ? (
+                              <Loader2 size={12} className="spinner" style={{ color: 'var(--primary-color)' }} />
+                            ) : source.status === 'success' ? (
+                              <CheckCircle2 size={12} style={{ color: '#28a745' }} />
+                            ) : source.status === 'limit' ? (
+                              <AlertCircle size={12} style={{ color: '#ffc107' }} />
+                            ) : source.status === 'error' ? (
+                              <AlertCircle size={12} style={{ color: '#dc3545' }} />
+                            ) : (
+                              <div style={{ width: '12px', height: '12px' }} />
+                            )}
+                            <span style={{ 
+                              color: source.status === 'success' ? '#28a745' : 
+                                     source.status === 'error' ? '#dc3545' : 
+                                     source.status === 'limit' ? '#e67e22' : 
+                                     source.status === 'loading' ? 'var(--text-color)' : '#adb5bd' 
+                            }}>
+                              {source.name}
+                              {source.status === 'limit' && ' (制限中)'}
+                              {source.status === 'error' && ' (未登録/失敗)'}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     )}
-                    {apiError && (
+                    {apiError && !scannedInfoSource && (
                       <div style={{ marginTop: '4px' }}>
                         <small style={{ color: 'red', display: 'block', marginBottom: '4px', fontSize: '0.75rem' }}>{apiError}</small>
                       </div>
