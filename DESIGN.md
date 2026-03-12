@@ -7,6 +7,7 @@
   - JAN/EAN バーコードのカメラ読取
   - 商品名・メーカー名・商品画像の自動取得
   - 商品情報未取得時の手入力フォールバック
+  - Google画像検索による商品画像補完
   - 商品分類タグ付け
   - 数量登録、編集、削除、検索
   - CSV エクスポート / インポート
@@ -15,7 +16,7 @@
 ## 2. 設計方針
 - KISS: サーバー、認証、DB を持たず、1 端末で完結する構成を維持します。
 - DRY: 在庫データ操作は `useInventory`、設定値管理は `useSettings` に集約します。
-- 障害分離: 外部 API 失敗時でも、手入力により棚卸し継続を可能にします。
+- 障害分離: 外部 API 失敗時でも、手入力と画像検索補完により棚卸し継続を可能にします。
 - モバイル優先: `100dvh` と固定ボトムナビゲーション前提で、iPhone 系ブラウザの表示崩れを抑制します。
 
 ## 3. 技術スタック
@@ -58,6 +59,7 @@
 3. `App.tsx` が商品情報取得を試行します。
 4. Yahoo! API で取得できなければ Open Food Facts を試行します。
 5. それでも取得失敗なら、商品名とメーカー名を手入力します。
+6. 必要に応じて、入力済みのメーカー名と商品名で Google画像検索を実行し、画像だけ補完します。
 6. 数量を確定し保存します。
 
 ### 5.2 既存商品の再読取
@@ -84,7 +86,7 @@
 | `productName` | `string` | 商品名 |
 | `manufacturerName` | `string?` | メーカー名 / ブランド名 |
 | `category` | `string?` | 商品分類タグ |
-| `imageUrl` | `string?` | 外部 API から取得した商品画像 URL |
+| `imageUrl` | `string?` | 外部 API または Google画像検索で取得した商品画像 URL |
 | `userName` | `string?` | 入力担当者名 |
 | `quantity` | `number` | 数量 |
 | `scannedAt` | `number` | UNIX epoch milliseconds |
@@ -109,11 +111,13 @@
   - スキャン状態管理
   - 商品登録フォーム制御
   - API 呼び出し
+  - Google画像検索呼び出し
   - CSV 入出力起点
 - 状態:
   - `activeTab`, `isScanning`, `scannedJan`
   - フォーム入力 (`productNameInput`, `manufacturerInput`, `categoryInput`, `quantityInput`, `imageUrlInput`)
   - API 状態 (`isFetchingName`, `isApiFetched`, `apiError`)
+  - 画像検索状態 (`isProductLookupFailed`, `isSearchingImage`, `imageSearchError`)
   - 既存商品判定 (`isExistingItem`, `originalQuantity`)
   - リスト検索 (`searchQuery`)
   - 編集ダイアログ (`editingItem`)
@@ -186,6 +190,24 @@
   - 食品以外の網羅率は低いです。
   - 商品名・ブランド名の揺れがあります。
 
+### 8.3 Google画像検索
+- 用途: JAN から商品情報が取得できなかった場合の画像補完手段です。
+- 起動条件:
+  - 商品名を手入力済み
+  - ユーザーが `Google画像検索で画像を探す` を押したとき
+- 検索語:
+  - `メーカー名 + 商品名`
+  - メーカー名が空なら商品名のみ
+- 実装方式:
+  - Google画像検索結果 HTML の非公式スクレイプ
+  - CORS 回避は既存と同様に公開プロキシへ依存
+- 取得方針:
+  - 候補画像 URL を抽出し、最初に使える 1 件を `imageUrl` として保存
+- トレードオフ:
+  - Google 側の HTML 構造変更で壊れやすいです。
+  - 取得画像の妥当性は保証できません。
+  - 公開プロキシ依存のため、安定性と可用性は低いです。
+
 ## 9. CSV 仕様
 
 ### 9.1 出力列
@@ -239,6 +261,7 @@
 ### 12.2 外部依存リスク
 - Yahoo! API は CORS 回避プロキシに依存しており、安定性・可用性が保証されません。
 - Open Food Facts は商品カバレッジに偏りがあります。
+- Google画像検索スクレイプは HTML 構造変更で壊れやすく、結果品質も保証できません。
 
 ### 12.3 実装上の注意
 - `handleSaveEdit` は `addOrUpdateItem` を経由するため、編集対象の商品がリスト先頭へ再配置されます。

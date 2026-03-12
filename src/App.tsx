@@ -24,6 +24,9 @@ function App() {
   const [isExistingItem, setIsExistingItem] = useState<boolean>(false);
   const [originalQuantity, setOriginalQuantity] = useState<number | null>(null);
   const [isApiFetched, setIsApiFetched] = useState<boolean>(false);
+  const [isProductLookupFailed, setIsProductLookupFailed] = useState(false);
+  const [isSearchingImage, setIsSearchingImage] = useState(false);
+  const [imageSearchError, setImageSearchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [forceUpdateRequestId, setForceUpdateRequestId] = useState(0);
 
@@ -31,6 +34,111 @@ function App() {
 
   // 編集ダイアログ用ステート
   const [editingItem, setEditingItem] = useState<{id: string, name: string, manufacturer: string, category: string} | null>(null);
+
+  const decodeEscapedHtml = (value: string) =>
+    value
+      .replace(/\\u003d/g, '=')
+      .replace(/\\u0026/g, '&')
+      .replace(/\\u002f/gi, '/')
+      .replace(/\\\//g, '/')
+      .replace(/&amp;/g, '&');
+
+  const isLikelyImageUrl = (url: string) => {
+    const normalized = url.trim();
+    if (!/^https?:\/\//i.test(normalized)) return false;
+
+    const lower = normalized.toLowerCase();
+    if (
+      lower.startsWith('data:') ||
+      lower.includes('google.com/images') ||
+      lower.includes('/logos/') ||
+      lower.includes('gstatic.com/images')
+    ) {
+      return false;
+    }
+
+    return (
+      /\.(jpg|jpeg|png|webp|gif|avif)(?:[?#]|$)/i.test(normalized) ||
+      lower.includes('encrypted-tbn0.gstatic.com') ||
+      lower.includes('googleusercontent.com')
+    );
+  };
+
+  const normalizeCandidateUrl = (rawUrl: string) => {
+    try {
+      const parsedUrl = new URL(rawUrl);
+      const embeddedImageUrl = parsedUrl.searchParams.get('imgurl') || parsedUrl.searchParams.get('mediaurl');
+      return embeddedImageUrl ? decodeURIComponent(embeddedImageUrl) : rawUrl;
+    } catch {
+      return rawUrl;
+    }
+  };
+
+  const extractImageCandidates = (html: string) => {
+    const normalizedHtml = decodeEscapedHtml(html);
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(normalizedHtml, 'text/html');
+
+    const srcCandidates = Array.from(doc.querySelectorAll('img'))
+      .map((img) => img.getAttribute('src') || '')
+      .filter(Boolean);
+
+    const srcSetCandidates = Array.from(doc.querySelectorAll('img, source'))
+      .flatMap((element) =>
+        (element.getAttribute('srcset') || '')
+          .split(',')
+          .map((entry) => entry.trim().split(' ')[0])
+          .filter(Boolean)
+      );
+
+    const regexCandidates = Array.from(normalizedHtml.matchAll(/https?:\/\/[^"'\\\s<>]+/g))
+      .map((match) => match[0])
+      .filter(Boolean);
+
+    const deduped = Array.from(
+      new Set([...srcCandidates, ...srcSetCandidates, ...regexCandidates].map(normalizeCandidateUrl))
+    );
+    return deduped.filter(isLikelyImageUrl);
+  };
+
+  const pickBestImageUrl = (candidates: string[]) => {
+    const nonGoogleUrls = candidates.filter(
+      (url) => !url.includes('encrypted-tbn0.gstatic.com') && !url.includes('googleusercontent.com')
+    );
+
+    return nonGoogleUrls[0] || candidates[0] || null;
+  };
+
+  const fetchGoogleImageUrl = async (query: string): Promise<string | null> => {
+    const searchUrl = `https://www.google.com/search?tbm=isch&hl=ja&safe=off&q=${encodeURIComponent(query)}`;
+    const proxies = [
+      `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`,
+      `https://corsproxy.io/?url=${encodeURIComponent(searchUrl)}`
+    ];
+
+    const fetchFromProxy = async (proxyUrl: string) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      try {
+        const response = await fetch(proxyUrl, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+
+        if (proxyUrl.includes('allorigins')) {
+          const proxyData = await response.json();
+          if (!proxyData.contents) throw new Error('Invalid allorigins response');
+          return proxyData.contents as string;
+        }
+
+        return await response.text();
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    const html = await Promise.any(proxies.map((proxyUrl) => fetchFromProxy(proxyUrl)));
+    const candidates = extractImageCandidates(html);
+    return pickBestImageUrl(candidates);
+  };
 
   const fetchProductInfo = async (janCode: string, retries = 2): Promise<{name: string, manufacturer: string, imageUrl: string | null} | null> => {
     setApiError(null);
@@ -118,7 +226,7 @@ function App() {
         return offResult;
       }
 
-      setApiError("商品が見つかりませんでした。商品名を手入力してください。");
+      setApiError("商品が見つかりませんでした。商品名を手入力し、必要なら画像を探してください。");
     } catch (error: any) {
       console.error("API Fetch Error:", error);
       setApiError(`通信エラーが発生しました。手入力してください。`);
@@ -134,6 +242,8 @@ function App() {
     setScannedJan(decodedText);
     setApiError(null);
     setIsApiFetched(false);
+    setIsProductLookupFailed(false);
+    setImageSearchError(null);
     
     const existingItem = items.find(item => item.janCode === decodedText);
     
@@ -145,6 +255,7 @@ function App() {
       setCategoryInput(existingItem.category || "");
       setImageUrlInput(existingItem.imageUrl || null);
       setQuantityInput(existingItem.quantity + 1);
+      setIsProductLookupFailed(false);
     } else {
       setIsExistingItem(false);
       setOriginalQuantity(null);
@@ -160,7 +271,37 @@ function App() {
         setManufacturerInput(info.manufacturer);
         setImageUrlInput(info.imageUrl);
         setIsApiFetched(true);
+        setIsProductLookupFailed(false);
+      } else {
+        setIsProductLookupFailed(true);
       }
+    }
+  };
+
+  const handleSearchImage = async () => {
+    const query = [manufacturerInput.trim(), productNameInput.trim()].filter(Boolean).join(' ');
+
+    if (!productNameInput.trim()) {
+      setImageSearchError('商品名を入力してから画像を探してください。');
+      return;
+    }
+
+    setIsSearchingImage(true);
+    setImageSearchError(null);
+
+    try {
+      const foundImageUrl = await fetchGoogleImageUrl(query);
+      if (!foundImageUrl) {
+        setImageSearchError('画像が見つかりませんでした。商品名やメーカー名を調整してください。');
+        return;
+      }
+
+      setImageUrlInput(foundImageUrl);
+    } catch (error) {
+      console.error('Google image search failed:', error);
+      setImageSearchError('画像検索に失敗しました。時間をおいて再試行してください。');
+    } finally {
+      setIsSearchingImage(false);
     }
   };
 
@@ -186,6 +327,8 @@ function App() {
     setIsExistingItem(false);
     setOriginalQuantity(null);
     setIsApiFetched(false);
+    setIsProductLookupFailed(false);
+    setImageSearchError(null);
   };
 
   const handleCancelScan = () => {
@@ -196,6 +339,8 @@ function App() {
       setIsApiFetched(false);
       setImageUrlInput(null);
       setCategoryInput("");
+      setIsProductLookupFailed(false);
+      setImageSearchError(null);
     }
   };
 
@@ -371,7 +516,10 @@ function App() {
                     <input 
                       type="text" 
                       value={manufacturerInput} 
-                      onChange={(e) => setManufacturerInput(e.target.value)} 
+                      onChange={(e) => {
+                        setManufacturerInput(e.target.value);
+                        setImageSearchError(null);
+                      }} 
                       placeholder="手入力できます"
                       className={`form-control ${(isInputLocked && manufacturerInput) ? 'readonly' : ''}`} 
                       disabled={isFetchingName}
@@ -385,7 +533,10 @@ function App() {
                     <div style={{ position: 'relative' }}>
                       <textarea 
                         value={productNameInput} 
-                        onChange={(e) => setProductNameInput(e.target.value)} 
+                        onChange={(e) => {
+                          setProductNameInput(e.target.value);
+                          setImageSearchError(null);
+                        }} 
                         placeholder={isFetchingName ? "取得中..." : "手入力できます"}
                         className={`form-control ${(isInputLocked && productNameInput) ? 'readonly' : ''}`} 
                         disabled={isFetchingName}
@@ -400,6 +551,27 @@ function App() {
                     {apiError && (
                       <div style={{ marginTop: '4px' }}>
                         <small style={{ color: 'red', display: 'block', marginBottom: '4px', fontSize: '0.75rem' }}>{apiError}</small>
+                      </div>
+                    )}
+                    {isProductLookupFailed && !isExistingItem && (
+                      <div style={{ marginTop: '0.5rem' }}>
+                        <button
+                          className="btn btn-outline"
+                          onClick={handleSearchImage}
+                          disabled={isFetchingName || isSearchingImage || !productNameInput.trim()}
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                        >
+                          {isSearchingImage ? <Loader2 className="spinner icon-small" /> : <ImageIcon className="icon-small" />}
+                          {imageUrlInput ? '画像を再検索' : 'Google画像検索で画像を探す'}
+                        </button>
+                        <small style={{ display: 'block', marginTop: '4px', fontSize: '0.75rem' }}>
+                          ※ 商品名とメーカー名をもとに Google 画像検索します。
+                        </small>
+                      </div>
+                    )}
+                    {imageSearchError && (
+                      <div style={{ marginTop: '4px' }}>
+                        <small style={{ color: 'red', display: 'block', marginBottom: '4px', fontSize: '0.75rem' }}>{imageSearchError}</small>
                       </div>
                     )}
                   </div>
