@@ -4,6 +4,7 @@ import { useSettings } from './hooks/useSettings'
 import { Scanner } from './components/Scanner'
 import { ReloadPrompt } from './components/ReloadPrompt'
 import { Camera, List as ListIcon, Settings, Download, Upload, Trash2, Loader2, Edit2, Image as ImageIcon, X, RefreshCw } from 'lucide-react'
+import { getJson } from 'serpapi'
 import './index.css'
 
 function App() {
@@ -48,16 +49,12 @@ function App() {
       return null;
     }
 
-    const searchUrl = `https://serpapi.com/search.json?engine=google_images&q=${encodeURIComponent(query)}&api_key=${serpApiKey}`;
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
-
     try {
-      const response = await fetch(proxyUrl);
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-      const data = await response.json();
-      
-      // allorigins returns the response in a 'contents' field as a string
-      const serpData = JSON.parse(data.contents);
+      const serpData = await getJson({
+        engine: "google_images",
+        q: query,
+        api_key: serpApiKey,
+      });
       
       if (serpData.images_results && serpData.images_results.length > 0) {
         // Return the first image result's original URL
