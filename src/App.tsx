@@ -71,7 +71,7 @@ function App() {
       const proxyUrl = proxyBaseUrl + targetUrl;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); 
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20秒に延長
       try {
         const response = await fetch(proxyUrl, { signal: controller.signal });
         if (!response.ok) throw new Error(`プロキシ通信エラー (${response.status})`);
@@ -96,6 +96,11 @@ function App() {
           return firstResult.original || firstResult.thumbnail || null;
         }
         throw new Error("検索結果に画像が見つかりませんでした");
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          throw new Error("通信がタイムアウトしました。電波の良い場所で再試行してください。");
+        }
+        throw error;
       } finally {
         clearTimeout(timeoutId);
       }
