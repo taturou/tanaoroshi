@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useInventory } from './hooks/useInventory'
 import { useSettings } from './hooks/useSettings'
 import { Scanner } from './components/Scanner'
@@ -34,6 +34,11 @@ function App() {
   const [yahooCORSStatus, setYahooCORSStatus] = useState<'idle' | 'loading' | 'success' | 'error' | 'limit'>('idle');
   const [offStatus, setOffStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [isYahooLimitReached, setIsYahooLimitReached] = useState(false);
+
+  // ClientIDが変更されたら制限フラグをリセット
+  useEffect(() => {
+    setIsYahooLimitReached(false);
+  }, [clientId]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
