@@ -59,25 +59,23 @@ function App() {
       google_domain: "google.co.jp",
       hl: "ja",
       gl: "jp",
-      num: "10", // レスポンスサイズを小さくするために件数を制限
       q: query,
-      api_key: serpApiKey,
-      _ : Date.now().toString()
+      api_key: serpApiKey
     });
 
     const searchUrl = `https://serpapi.com/search.json?${params.toString()}`;
     
     const proxies = [
-      'https://corsproxy.io/?url=',
       'https://api.allorigins.win/get?url=',
+      'https://corsproxy.io/?url=',
       'https://api.codetabs.com/v1/proxy?quest='
     ];
 
     let lastError = '画像検索に失敗しました';
 
     for (const proxyBaseUrl of proxies) {
-      const targetUrl = encodeURIComponent(searchUrl);
-      const proxyUrl = proxyBaseUrl + targetUrl;
+      // タイムスタンプはプロキシのキャッシュを避けるために外側に付与
+      const proxyUrl = `${proxyBaseUrl}${encodeURIComponent(searchUrl)}&_=${Date.now()}`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000); 
