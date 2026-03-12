@@ -159,7 +159,7 @@ function App() {
       }
       
       const targetUrl = encodeURIComponent(`${yahooBaseUrl}&_=${Date.now()}`);
-      const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}`;
+      const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}&cache=${Date.now()}`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -175,11 +175,19 @@ function App() {
           return null;
         }
         
-        const data = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
+        let data;
+        try {
+          data = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
+        } catch (e) {
+          console.error("Failed to parse AllOrigins content:", e);
+          setYahooAllStatus('error');
+          return null;
+        }
         
         if (data.Error) {
           const errCode = String(data.Error.Code);
           if (errCode === "403" || errCode === "429") {
+            console.warn(`Yahoo AllOrigins Limit/Forbidden: ${errCode} - ${data.Error.Message}`);
             setIsYahooLimitReached(true);
             setYahooAllStatus('limit');
             setYahooCORSStatus('limit');
@@ -216,7 +224,7 @@ function App() {
       }
       
       const targetUrl = encodeURIComponent(`${yahooBaseUrl}&_=${Date.now()}`);
-      const proxyUrl = `https://corsproxy.io/?url=${targetUrl}`;
+      const proxyUrl = `https://corsproxy.io/?url=${targetUrl}&cache=${Date.now()}`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -224,6 +232,7 @@ function App() {
         const response = await fetch(proxyUrl, { signal: controller.signal });
         if (!response.ok) {
           if (response.status === 403 || response.status === 429) {
+            console.warn(`Yahoo CORSProxy Limit/Forbidden: ${response.status}`);
             setIsYahooLimitReached(true);
             setYahooAllStatus('limit');
             setYahooCORSStatus('limit');
@@ -237,6 +246,7 @@ function App() {
         if (data.Error) {
           const errCode = String(data.Error.Code);
           if (errCode === "403" || errCode === "429") {
+            console.warn(`Yahoo CORSProxy API Limit/Forbidden: ${errCode} - ${data.Error.Message}`);
             setIsYahooLimitReached(true);
             setYahooAllStatus('limit');
             setYahooCORSStatus('limit');
@@ -461,10 +471,12 @@ function App() {
   };
 
   const handleSaveSetting = () => {
+    const trimmedValue = tempSettingValue.trim();
     if (editingSettingType === 'clientId') {
-      setClientId(tempSettingValue);
+      setClientId(trimmedValue);
+      setIsYahooLimitReached(false); // 即座にリセット
     } else if (editingSettingType === 'serpApiKey') {
-      setSerpApiKey(tempSettingValue);
+      setSerpApiKey(trimmedValue);
     }
     setEditingSettingType(null);
   };
