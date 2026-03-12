@@ -33,7 +33,9 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 編集ダイアログ用ステート
-  const [editingItem, setEditingItem] = useState<{id: string, name: string, manufacturer: string, category: string} | null>(null);
+  const [editingItem, setEditingItem] = useState<{id: string, name: string, manufacturer: string, category: string, imageUrl: string | null} | null>(null);
+  const [isEditingImageSearching, setIsEditingImageSearching] = useState(false);
+  const [editingImageSearchError, setEditingImageSearchError] = useState<string | null>(null);
 
   const decodeEscapedHtml = (value: string) =>
     value
@@ -303,6 +305,12 @@ function App() {
     return rankedCandidates[0]?.url || null;
   };
 
+  const buildImageSearchQuery = (manufacturer: string, productName: string) =>
+    [manufacturer.trim(), productName.trim()]
+      .filter(Boolean)
+      .map((part) => `"${part}"`)
+      .join(' ');
+
   const fetchGoogleImageUrl = async (query: string): Promise<string | null> => {
     const searchUrl = `https://www.google.com/search?tbm=isch&hl=ja&safe=off&q=${encodeURIComponent(query)}`;
     const proxies = [
@@ -508,10 +516,7 @@ function App() {
   };
 
   const handleSearchImage = async () => {
-    const query = [manufacturerInput.trim(), productNameInput.trim()]
-      .filter(Boolean)
-      .map((part) => `"${part}"`)
-      .join(' ');
+    const query = buildImageSearchQuery(manufacturerInput, productNameInput);
 
     if (!productNameInput.trim()) {
       setImageSearchError('商品名を入力してから画像を探してください。');
@@ -534,6 +539,35 @@ function App() {
       setImageSearchError('画像検索に失敗しました。時間をおいて再試行してください。');
     } finally {
       setIsSearchingImage(false);
+    }
+  };
+
+  const handleEditSearchImage = async () => {
+    if (!editingItem) return;
+
+    const query = buildImageSearchQuery(editingItem.manufacturer, editingItem.name);
+
+    if (!editingItem.name.trim()) {
+      setEditingImageSearchError('商品名を入力してから画像を探してください。');
+      return;
+    }
+
+    setIsEditingImageSearching(true);
+    setEditingImageSearchError(null);
+
+    try {
+      const foundImageUrl = await fetchGoogleImageUrl(query);
+      if (!foundImageUrl) {
+        setEditingImageSearchError('画像が見つかりませんでした。商品名やメーカー名を調整してください。');
+        return;
+      }
+
+      setEditingItem((current) => current ? { ...current, imageUrl: foundImageUrl } : current);
+    } catch (error) {
+      console.error('Google image search failed:', error);
+      setEditingImageSearchError('画像検索に失敗しました。時間をおいて再試行してください。');
+    } finally {
+      setIsEditingImageSearching(false);
     }
   };
 
@@ -585,12 +619,13 @@ function App() {
           productName: editingItem.name,
           manufacturerName: editingItem.manufacturer,
           category: editingItem.category,
-          imageUrl: itemToUpdate.imageUrl,
+          imageUrl: editingItem.imageUrl || undefined,
           quantity: itemToUpdate.quantity,
           userName: itemToUpdate.userName
         });
       }
       setEditingItem(null);
+      setEditingImageSearchError(null);
     }
   };
 
@@ -893,7 +928,16 @@ function App() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div className="item-jan" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
                             <span>{item.janCode}</span>
-                            <button className="btn-icon" onClick={() => setEditingItem({ id: item.id, name: item.productName, manufacturer: item.manufacturerName || "", category: item.category || "" })}>
+                            <button className="btn-icon" onClick={() => {
+                              setEditingItem({
+                                id: item.id,
+                                name: item.productName,
+                                manufacturer: item.manufacturerName || "",
+                                category: item.category || "",
+                                imageUrl: item.imageUrl || null
+                              });
+                              setEditingImageSearchError(null);
+                            }}>
                               <Edit2 className="icon-small" style={{ color: 'var(--primary-color)' }} />
                             </button>
                           </div>
@@ -1079,7 +1123,10 @@ function App() {
               <input 
                 type="text" 
                 value={editingItem.manufacturer} 
-                onChange={(e) => setEditingItem({...editingItem, manufacturer: e.target.value})} 
+                onChange={(e) => {
+                  setEditingItem({...editingItem, manufacturer: e.target.value});
+                  setEditingImageSearchError(null);
+                }} 
                 className="form-control"
               />
             </div>
@@ -1087,13 +1134,55 @@ function App() {
               <label>商品名</label>
               <textarea 
                 value={editingItem.name} 
-                onChange={(e) => setEditingItem({...editingItem, name: e.target.value})} 
+                onChange={(e) => {
+                  setEditingItem({...editingItem, name: e.target.value});
+                  setEditingImageSearchError(null);
+                }} 
                 className="form-control"
                 rows={3}
               />
             </div>
+            <div className="form-group">
+              <label>画像</label>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                <div style={{ width: '72px', height: '72px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', border: !editingItem.imageUrl ? '2px dashed #adb5bd' : 'none' }}>
+                  {editingItem.imageUrl ? (
+                    <img
+                      src={editingItem.imageUrl}
+                      alt="商品画像"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        setEditingItem((current) => current ? { ...current, imageUrl: null } : current);
+                      }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: '0.75rem', color: '#6c757d' }}>画像なし</span>
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <button
+                    className="btn btn-outline"
+                    onClick={handleEditSearchImage}
+                    disabled={isEditingImageSearching || !editingItem.name.trim()}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                  >
+                    {isEditingImageSearching ? <Loader2 className="spinner icon-small" /> : <ImageIcon className="icon-small" />}
+                    {editingItem.imageUrl ? '画像を再検索' : 'Google画像検索で画像を探す'}
+                  </button>
+                  <small style={{ display: 'block', marginTop: '4px', fontSize: '0.75rem' }}>
+                    ※ 商品名とメーカー名をもとに Google 画像検索します。
+                  </small>
+                  {editingImageSearchError && (
+                    <small style={{ color: 'red', display: 'block', marginTop: '4px', fontSize: '0.75rem' }}>
+                      {editingImageSearchError}
+                    </small>
+                  )}
+                </div>
+              </div>
+            </div>
             <div className="form-actions" style={{ gap: '1rem' }}>
-              <button className="btn btn-secondary" onClick={() => setEditingItem(null)} style={{ padding: '1.2rem', fontSize: '1.1rem' }}>キャンセル</button>
+              <button className="btn btn-secondary" onClick={() => { setEditingItem(null); setEditingImageSearchError(null); }} style={{ padding: '1.2rem', fontSize: '1.1rem' }}>キャンセル</button>
               <button className="btn btn-primary" onClick={handleSaveEdit} style={{ padding: '1.2rem', fontSize: '1.1rem' }}>保存</button>
             </div>
           </div>

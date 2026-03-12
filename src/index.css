@@ -161,6 +161,20 @@ input, textarea, [contenteditable="true"] {
 .icon { width: 20px; height: 20px; }
 .icon-small { width: 16px; height: 16px; }
 
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Forms */
 .form-group {
   margin-bottom: 0.75rem;

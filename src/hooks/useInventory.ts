@@ -78,7 +78,7 @@ export function useInventory() {
     if (items.length === 0) return;
     
     // Header
-    let csvContent = "JANコード,商品名,メーカー名,商品分類,数量,スキャン日時,ユーザ名\n";
+    let csvContent = "JANコード,商品名,メーカー名,商品分類,画像URL,数量,スキャン日時,ユーザ名\n";
     
     // Rows
     items.forEach((item) => {
@@ -87,8 +87,9 @@ export function useInventory() {
       const safeName = `"${item.productName.replace(/"/g, '""')}"`;
       const safeManufacturer = `"${(item.manufacturerName || '').replace(/"/g, '""')}"`;
       const safeCategory = `"${(item.category || '').replace(/"/g, '""')}"`;
+      const safeImageUrl = `"${(item.imageUrl || '').replace(/"/g, '""')}"`;
       const safeUserName = `"${(item.userName || currentUserName).replace(/"/g, '""')}"`;
-      csvContent += `${item.janCode},${safeName},${safeManufacturer},${safeCategory},${item.quantity},${date},${safeUserName}\n`;
+      csvContent += `${item.janCode},${safeName},${safeManufacturer},${safeCategory},${safeImageUrl},${item.quantity},${date},${safeUserName}\n`;
     });
 
     // Create a Blob and trigger download (BOM付きでExcelの文字化けを防ぐ)
@@ -130,21 +131,28 @@ export function useInventory() {
       return result;
     };
 
+    const header = parseCSVLine(lines[0]);
+    const hasImageUrlColumn = header.includes('画像URL');
+
     const newItems: InventoryItem[] = [];
     for (let i = 1; i < lines.length; i++) {
       const parts = parseCSVLine(lines[i]);
       if (parts.length >= 4) {
-        // JAN, Name, Manufacturer, Category, Qty, Date, User
-        const timestamp = parts[5] ? new Date(parts[5]).getTime() : Date.now();
+        // JAN, Name, Manufacturer, Category, [ImageUrl], Qty, Date, User
+        const quantityIndex = hasImageUrlColumn ? 5 : 4;
+        const scannedAtIndex = hasImageUrlColumn ? 6 : 5;
+        const userNameIndex = hasImageUrlColumn ? 7 : 6;
+        const timestamp = parts[scannedAtIndex] ? new Date(parts[scannedAtIndex]).getTime() : Date.now();
         newItems.push({
           id: crypto.randomUUID(),
           janCode: parts[0],
           productName: parts[1] || "名称未設定",
           manufacturerName: parts[2] || "",
           category: parts[3] || "",
-          quantity: parseInt(parts[4], 10) || 1,
+          imageUrl: hasImageUrlColumn ? (parts[4] || undefined) : undefined,
+          quantity: parseInt(parts[quantityIndex], 10) || 1,
           scannedAt: isNaN(timestamp) ? Date.now() : timestamp,
-          userName: parts[6] || "",
+          userName: parts[userNameIndex] || "",
         });
       }
     }
@@ -159,6 +167,7 @@ export function useInventory() {
           if (existingIndex >= 0) {
             merged[existingIndex] = {
               ...merged[existingIndex],
+              imageUrl: newItem.imageUrl || merged[existingIndex].imageUrl,
               quantity: merged[existingIndex].quantity + newItem.quantity,
             };
             const [updated] = merged.splice(existingIndex, 1);
