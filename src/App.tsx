@@ -150,13 +150,12 @@ function App() {
     setYahooCORSStatus('loading');
     setOffStatus('loading');
 
-    const yahooV3Url = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`;
     const yahooV2Url = `https://shopping.yahooapis.jp/ShoppingWebService/V2/itemSearch?appid=${clientId}&jan_code=${janCode}`;
 
-    const fetchYahoo = async (baseUrl: string, version: 'V2' | 'V3', proxyBase: 'allorigins' | 'corsproxy') => {
+    const fetchYahoo = async (proxyBase: 'allorigins' | 'corsproxy') => {
       if (!clientId || isYahooLimitReached) return null;
       
-      const targetUrl = encodeURIComponent(`${baseUrl}&_=${Date.now()}`);
+      const targetUrl = encodeURIComponent(`${yahooV2Url}&_=${Date.now()}`);
       const proxyUrl = proxyBase === 'allorigins' 
         ? `https://api.allorigins.win/get?url=${targetUrl}&cache=${Date.now()}`
         : `https://corsproxy.io/?url=${targetUrl}&cache=${Date.now()}`;
@@ -195,20 +194,8 @@ function App() {
           return null;
         }
 
-        // V3形式のパース
-        if (version === 'V3' && data.hits && data.hits.length > 0) {
-          const item = data.hits[0];
-          statusSetter('success');
-          return {
-            name: item.name,
-            manufacturer: item.brand?.name || "",
-            imageUrl: item.image?.medium || item.image?.small || null,
-            source: `Yahoo! V3 (${proxyBase === 'allorigins' ? 'AllOrigins' : 'CORSProxy'})`
-          };
-        }
-
         // V2形式のパース (ResultSet.Result[0])
-        if (version === 'V2' && data.ResultSet && data.ResultSet.totalResultsAvailable > 0) {
+        if (data.ResultSet && data.ResultSet.totalResultsAvailable > 0) {
           const item = data.ResultSet["0"].Result["0"];
           statusSetter('success');
           return {
@@ -219,7 +206,7 @@ function App() {
           };
         }
       } catch (error) {
-        console.error(`Yahoo ${version} ${proxyBase} failed:`, error);
+        console.error(`Yahoo V2 ${proxyBase} failed:`, error);
       } finally {
         clearTimeout(timeoutId);
       }
@@ -256,18 +243,16 @@ function App() {
     };
 
     try {
-      // 全ての経路を同時に取得開始 (V2を優先的に試す)
-      const [yahooV2All, yahooV2CORS, yahooV3All, offResult] = await Promise.all([
-        fetchYahoo(yahooV2Url, 'V2', 'allorigins'),
-        fetchYahoo(yahooV2Url, 'V2', 'corsproxy'),
-        fetchYahoo(yahooV3Url, 'V3', 'allorigins'),
+      // Yahoo V2 と Open Food Facts を同時に取得
+      const [yahooV2All, yahooV2CORS, offResult] = await Promise.all([
+        fetchYahoo('allorigins'),
+        fetchYahoo('corsproxy'),
         fetchFromOpenFoodFacts()
       ]);
       
-      // 優先順位: Yahoo V2 > Yahoo V3 > Open Food Facts
+      // 優先順位: Yahoo V2 > Open Food Facts
       if (yahooV2All) return yahooV2All;
       if (yahooV2CORS) return yahooV2CORS;
-      if (yahooV3All) return yahooV3All;
       if (offResult) return offResult;
 
       setApiError("商品が見つかりませんでした。商品名を手入力し、必要なら画像を探してください。");
