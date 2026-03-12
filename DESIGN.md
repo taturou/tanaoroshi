@@ -6,7 +6,7 @@
 - 提供機能:
   - JAN/EAN バーコードのカメラ読取
   - 商品名・メーカー名・商品画像の自動取得
-  - OCR による商品名補完
+  - 商品情報未取得時の手入力フォールバック
   - 商品分類タグ付け
   - 数量登録、編集、削除、検索
   - CSV エクスポート / インポート
@@ -15,7 +15,7 @@
 ## 2. 設計方針
 - KISS: サーバー、認証、DB を持たず、1 端末で完結する構成を維持します。
 - DRY: 在庫データ操作は `useInventory`、設定値管理は `useSettings` に集約します。
-- 障害分離: 外部 API 失敗時でも、手入力と OCR により棚卸し継続を可能にします。
+- 障害分離: 外部 API 失敗時でも、手入力により棚卸し継続を可能にします。
 - モバイル優先: `100dvh` と固定ボトムナビゲーション前提で、iPhone 系ブラウザの表示崩れを抑制します。
 
 ## 3. 技術スタック
@@ -23,7 +23,6 @@
 - ビルド: Vite 7
 - PWA: `vite-plugin-pwa`
 - バーコード読取: `@zxing/browser`, `@zxing/library`
-- OCR: `tesseract.js`
 - アイコン: `lucide-react`
 - スタイル: 単一 CSS (`src/index.css`)
 - 永続化: `localStorage`
@@ -58,7 +57,7 @@
 2. ZXing が `EAN_13` / `EAN_8` を検出します。
 3. `App.tsx` が商品情報取得を試行します。
 4. Yahoo! API で取得できなければ Open Food Facts を試行します。
-5. それでも取得失敗なら、手入力または OCR へフォールバックします。
+5. それでも取得失敗なら、商品名とメーカー名を手入力します。
 6. 数量を確定し保存します。
 
 ### 5.2 既存商品の再読取
@@ -85,7 +84,7 @@
 | `productName` | `string` | 商品名 |
 | `manufacturerName` | `string?` | メーカー名 / ブランド名 |
 | `category` | `string?` | 商品分類タグ |
-| `imageUrl` | `string?` | 商品画像 URL または撮影画像 Data URL |
+| `imageUrl` | `string?` | 外部 API から取得した商品画像 URL |
 | `userName` | `string?` | 入力担当者名 |
 | `quantity` | `number` | 数量 |
 | `scannedAt` | `number` | UNIX epoch milliseconds |
@@ -110,12 +109,11 @@
   - スキャン状態管理
   - 商品登録フォーム制御
   - API 呼び出し
-  - OCR 呼び出し
   - CSV 入出力起点
 - 状態:
   - `activeTab`, `isScanning`, `scannedJan`
   - フォーム入力 (`productNameInput`, `manufacturerInput`, `categoryInput`, `quantityInput`, `imageUrlInput`)
-  - API/OCR 状態 (`isFetchingName`, `isApiFetched`, `isOcrProcessing`, `apiError`)
+  - API 状態 (`isFetchingName`, `isApiFetched`, `apiError`)
   - 既存商品判定 (`isExistingItem`, `originalQuantity`)
   - リスト検索 (`searchQuery`)
   - 編集ダイアログ (`editingItem`)
@@ -188,16 +186,6 @@
   - 食品以外の網羅率は低いです。
   - 商品名・ブランド名の揺れがあります。
 
-### 8.3 OCR (`tesseract.js`)
-- 用途: API で商品名が取得できない場合の補助手段です。
-- 言語: `jpn`
-- 入力: カメラ撮影画像
-- 出力制約:
-  - 改行をスペース化してから先頭 50 文字へ切り詰めます。
-- トレードオフ:
-  - 初回ロードと解析が重く、低性能端末では待機時間が長いです。
-  - 認識精度はパッケージ写真品質に依存します。
-
 ## 9. CSV 仕様
 
 ### 9.1 出力列
@@ -251,12 +239,10 @@
 ### 12.2 外部依存リスク
 - Yahoo! API は CORS 回避プロキシに依存しており、安定性・可用性が保証されません。
 - Open Food Facts は商品カバレッジに偏りがあります。
-- OCR は端末性能と撮影品質に強く依存します。
 
 ### 12.3 実装上の注意
 - `handleSaveEdit` は `addOrUpdateItem` を経由するため、編集対象の商品がリスト先頭へ再配置されます。
 - `importCSV(mode='merge')` は既存数量へ加算しますが、商品名や分類は更新しません。
-- 画像を Data URL で保存するため、写真多用時は保存上限に達しやすいです。
 
 ## 13. 今後の改善候補
 - `IndexedDB` への移行
@@ -268,4 +254,4 @@
 - 差分同期または手動バックアップ強化
   - 根拠: 端末故障時のデータ消失リスクが高いためです。
 - 自動テスト追加
-  - 根拠: CSV パース、同一 JAN 更新、OCR/API フォールバックは回帰しやすいためです。
+  - 根拠: CSV パース、同一 JAN 更新、API フォールバックは回帰しやすいためです。

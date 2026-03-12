@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react'
-import { createWorker } from 'tesseract.js'
 import { useInventory } from './hooks/useInventory'
 import { useSettings } from './hooks/useSettings'
 import { Scanner } from './components/Scanner'
@@ -25,50 +24,12 @@ function App() {
   const [isExistingItem, setIsExistingItem] = useState<boolean>(false);
   const [originalQuantity, setOriginalQuantity] = useState<number | null>(null);
   const [isApiFetched, setIsApiFetched] = useState<boolean>(false);
-  const [isOcrProcessing, setIsOcrProcessing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
 
   // 編集ダイアログ用ステート
   const [editingItem, setEditingItem] = useState<{id: string, name: string, manufacturer: string, category: string} | null>(null);
-
-  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // プレビュー用に画像をセット
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setImageUrlInput(event.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-
-    // OCR処理
-    setIsOcrProcessing(true);
-    setApiError("画像を解析中...");
-    
-    try {
-      const worker = await createWorker('jpn');
-      const { data: { text } } = await worker.recognize(file);
-      await worker.terminate();
-
-      // 改行をスペースに置換し、前後の空白を削除
-      const cleanedText = text.replace(/\n/g, ' ').trim();
-      if (cleanedText) {
-        setProductNameInput(cleanedText.substring(0, 50)); // 長すぎる場合は制限
-        setApiError(null);
-      } else {
-        setApiError("文字を認識できませんでした。手動で入力してください。");
-      }
-    } catch (error) {
-      console.error("OCR Error:", error);
-      setApiError("解析エラーが発生しました。手動で入力してください。");
-    } finally {
-      setIsOcrProcessing(false);
-    }
-  };
 
   const fetchProductInfo = async (janCode: string, retries = 2): Promise<{name: string, manufacturer: string, imageUrl: string | null} | null> => {
     setApiError(null);
@@ -156,7 +117,7 @@ function App() {
         return offResult;
       }
 
-      setApiError("商品が見つかりませんでした。写真を撮って商品名を取得しますか？");
+      setApiError("商品が見つかりませんでした。商品名を手入力してください。");
     } catch (error: any) {
       console.error("API Fetch Error:", error);
       setApiError(`通信エラーが発生しました。手入力してください。`);
@@ -343,15 +304,6 @@ function App() {
       </header>
       
       <main className="app-main">
-        {/* OCR撮影用隠しインプット */}
-        <input 
-          type="file" 
-          accept="image/*" 
-          capture="environment" 
-          ref={photoInputRef} 
-          onChange={handlePhotoCapture} 
-          style={{ display: 'none' }} 
-        />
         {activeTab === 'scan' && (
           <div className="scan-section" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {!scannedJan ? (
@@ -387,15 +339,14 @@ function App() {
                   <div className="form-group" style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
                     <div 
                       className="product-image-container" 
-                      onClick={() => photoInputRef.current?.click()}
-                      style={{ width: '70px', height: '70px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', cursor: 'pointer', border: !imageUrlInput ? '2px dashed #adb5bd' : 'none' }}
+                      style={{ width: '70px', height: '70px', flexShrink: 0, backgroundColor: '#e9ecef', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', border: !imageUrlInput ? '2px dashed #adb5bd' : 'none' }}
                     >
                       {imageUrlInput ? (
                         <img src={imageUrlInput} alt="商品画像" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; setImageUrlInput(null); }} />
                       ) : (
                         <div style={{ textAlign: 'center', color: '#adb5bd' }}>
                           <ImageIcon size={20} style={{ margin: '0 auto' }} />
-                          <span style={{ fontSize: '0.55rem', display: 'block' }}>写真を撮る</span>
+                          <span style={{ fontSize: '0.55rem', display: 'block' }}>画像なし</span>
                         </div>
                       )}
                     </div>
@@ -437,49 +388,27 @@ function App() {
                   </div>
 
                   <div className="form-group">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                      <label style={{ marginBottom: 0, fontSize: '0.9rem' }}>商品名</label>
-                      {!isExistingItem && !isApiFetched && (
-                        <button 
-                          className="btn-text-icon" 
-                          onClick={() => photoInputRef.current?.click()}
-                          disabled={isOcrProcessing || isFetchingName}
-                          style={{ fontSize: '0.75rem', padding: '2px 6px', display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: '1px solid var(--primary-color)', color: 'var(--primary-color)', borderRadius: '4px', cursor: 'pointer' }}
-                        >
-                          <Camera size={12} /> 写真から抽出
-                        </button>
-                      )}
-                    </div>
+                    <label style={{ marginBottom: '2px', fontSize: '0.9rem' }}>商品名</label>
                     <div style={{ position: 'relative' }}>
                       <textarea 
                         value={productNameInput} 
                         onChange={(e) => setProductNameInput(e.target.value)} 
-                        placeholder={isFetchingName ? "取得中..." : isOcrProcessing ? "解析中..." : "手入力できます"}
+                        placeholder={isFetchingName ? "取得中..." : "手入力できます"}
                         className={`form-control ${(isInputLocked && productNameInput) ? 'readonly' : ''}`} 
-                        disabled={isFetchingName || isOcrProcessing}
+                        disabled={isFetchingName}
                         readOnly={!!(isInputLocked && productNameInput)}
                         rows={2}
                         style={{ resize: 'none', padding: '0.5rem' }}
                       />
-                      {(isFetchingName || isOcrProcessing) && (
+                      {isFetchingName && (
                         <Loader2 className="spinner" style={{ position: 'absolute', right: '10px', top: '10px', color: 'var(--primary-color)' }} />
                       )}
                     </div>
                     {apiError && (
                       <div style={{ marginTop: '4px' }}>
                         <small style={{ color: 'red', display: 'block', marginBottom: '4px', fontSize: '0.75rem' }}>{apiError}</small>
-                        {(!isApiFetched && !isExistingItem && !imageUrlInput) && (
-                          <button 
-                            className="btn btn-primary" 
-                            onClick={() => photoInputRef.current?.click()}
-                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '0.6rem', fontSize: '0.9rem' }}
-                          >
-                            <Camera size={18} /> 商品の写真を撮る
-                          </button>
-                        )}
                       </div>
                     )}
-                    {isOcrProcessing && <small style={{ color: 'var(--primary-color)', display: 'block', marginTop: '2px', fontSize: '0.7rem' }}>AIが写真から文字を読み取っています...</small>}
                   </div>
                 </div>
 
@@ -510,7 +439,7 @@ function App() {
                   </div>
                   <div className="form-actions large-actions" style={{ marginTop: 0 }}>
                     <button className="btn btn-secondary btn-large" onClick={handleCancelScan}>キャンセル</button>
-                    <button className="btn btn-primary btn-large" onClick={handleSaveScannedItem} disabled={isFetchingName || isOcrProcessing}>{isExistingItem ? "上書き保存する" : "保存する"}</button>
+                    <button className="btn btn-primary btn-large" onClick={handleSaveScannedItem} disabled={isFetchingName}>{isExistingItem ? "上書き保存する" : "保存する"}</button>
                   </div>
                 </div>
               </div>
