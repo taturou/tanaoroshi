@@ -35,9 +35,11 @@ function App() {
   const [offStatus, setOffStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [isYahooLimitReached, setIsYahooLimitReached] = useState(false);
 
-  // ClientIDが変更されたら制限フラグをリセット
+  // ClientIDが変更されたら制限フラグとステータスを完全にリセット
   useEffect(() => {
     setIsYahooLimitReached(false);
+    setYahooAllStatus('idle');
+    setYahooCORSStatus('idle');
   }, [clientId]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -162,7 +164,8 @@ function App() {
         const data = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
         
         if (data.Error) {
-          if (data.Error.Code === "403" || data.Error.Code === "429") {
+          const errCode = String(data.Error.Code);
+          if (errCode === "403" || errCode === "429") {
             setIsYahooLimitReached(true);
             setYahooAllStatus('limit');
             setYahooCORSStatus('limit');
@@ -218,7 +221,8 @@ function App() {
         const data = await response.json();
         
         if (data.Error) {
-          if (data.Error.Code === "403" || data.Error.Code === "429") {
+          const errCode = String(data.Error.Code);
+          if (errCode === "403" || errCode === "429") {
             setIsYahooLimitReached(true);
             setYahooAllStatus('limit');
             setYahooCORSStatus('limit');
