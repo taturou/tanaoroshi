@@ -4,7 +4,6 @@ import { useSettings } from './hooks/useSettings'
 import { Scanner } from './components/Scanner'
 import { ReloadPrompt } from './components/ReloadPrompt'
 import { Camera, List as ListIcon, Settings, Download, Upload, Trash2, Loader2, Edit2, Image as ImageIcon, X, RefreshCw } from 'lucide-react'
-import { getJson } from 'serpapi'
 import './index.css'
 
 function App() {
@@ -40,7 +39,6 @@ function App() {
   const buildImageSearchQuery = (manufacturer: string, productName: string) =>
     [manufacturer.trim(), productName.trim()]
       .filter(Boolean)
-      .map((part) => `"${part}"`)
       .join(' ');
 
   const fetchGoogleImageUrl = async (query: string): Promise<string | null> => {
@@ -49,20 +47,47 @@ function App() {
       return null;
     }
 
+    const searchUrl = `https://serpapi.com/search.json?engine=google_images&q=${encodeURIComponent(query)}&api_key=${serpApiKey}`;
+    
+    // Yahooの時と同様、複数のプロキシを試して信頼性を上げる
+    const proxies = [
+      {
+        url: `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`,
+        parser: async (response: Response) => {
+          const proxyData = await response.json();
+          if (!proxyData.contents) throw new Error("Invalid allorigins response");
+          return JSON.parse(proxyData.contents);
+        }
+      },
+      {
+        url: `https://corsproxy.io/?url=${encodeURIComponent(searchUrl)}`,
+        parser: async (response: Response) => response.json()
+      }
+    ];
+
+    const fetchFromProxy = async ({ url, parser }: { url: string, parser: (res: Response) => Promise<any> }) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒に延長
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        return await parser(response);
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
+
     try {
-      const serpData = await getJson({
-        engine: "google_images",
-        q: query,
-        api_key: serpApiKey,
-      });
+      // どちらかのプロキシが成功すればOK
+      const serpData = await Promise.any(proxies.map(proxy => fetchFromProxy(proxy)));
       
       if (serpData.images_results && serpData.images_results.length > 0) {
-        // Return the first image result's original URL
+        // 最初の画像のオリジナルURLかサムネイルを返す
         return serpData.images_results[0].original || serpData.images_results[0].thumbnail || null;
       }
       return null;
     } catch (error) {
-      console.error('SerpApi search failed:', error);
+      console.error('SerpApi image search failed across all proxies:', error);
       return null;
     }
   };
