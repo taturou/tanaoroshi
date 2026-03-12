@@ -23,7 +23,6 @@ function App() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isExistingItem, setIsExistingItem] = useState<boolean>(false);
   const [originalQuantity, setOriginalQuantity] = useState<number | null>(null);
-  const [isProductLookupFailed, setIsProductLookupFailed] = useState(false);
   const [isSearchingImage, setIsSearchingImage] = useState(false);
   const [imageSearchError, setImageSearchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -52,7 +51,7 @@ function App() {
     // Yahooの時と同様、複数のプロキシを試して信頼性を上げる
     const proxies = [
       {
-        url: `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`,
+        url: `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}&_=${Date.now()}`,
         parser: async (response: Response) => {
           const proxyData = await response.json();
           if (!proxyData.contents) throw new Error("Invalid allorigins response");
@@ -240,7 +239,6 @@ function App() {
     setIsScanning(false);
     setScannedJan(decodedText);
     setApiError(null);
-    setIsProductLookupFailed(false);
     setImageSearchError(null);
     
     const existingItem = items.find(item => item.janCode === decodedText);
@@ -253,7 +251,6 @@ function App() {
       setCategoryInput(existingItem.category || "");
       setImageUrlInput(existingItem.imageUrl || null);
       setQuantityInput(existingItem.quantity + 1);
-      setIsProductLookupFailed(false);
     } else {
       setIsExistingItem(false);
       setOriginalQuantity(null);
@@ -268,9 +265,6 @@ function App() {
         setProductNameInput(info.name);
         setManufacturerInput(info.manufacturer);
         setImageUrlInput(info.imageUrl);
-        setIsProductLookupFailed(false);
-      } else {
-        setIsProductLookupFailed(true);
       }
     }
   };
@@ -352,7 +346,6 @@ function App() {
     setImageUrlInput(null);
     setIsExistingItem(false);
     setOriginalQuantity(null);
-    setIsProductLookupFailed(false);
     setImageSearchError(null);
   };
 
@@ -363,7 +356,6 @@ function App() {
       setOriginalQuantity(null);
       setImageUrlInput(null);
       setCategoryInput("");
-      setIsProductLookupFailed(false);
       setImageSearchError(null);
     }
   };
@@ -574,7 +566,6 @@ function App() {
                         <small style={{ color: 'red', display: 'block', marginBottom: '4px', fontSize: '0.75rem' }}>{apiError}</small>
                       </div>
                     )}
-                    {isProductLookupFailed && !isExistingItem && (
                       <div style={{ marginTop: '0.5rem' }}>
                         <button
                           className="btn btn-outline"
@@ -589,7 +580,6 @@ function App() {
                           ※ 商品名とメーカー名をもとにインターネットから画像検索します。
                         </small>
                       </div>
-                    )}
                     {imageSearchError && (
                       <div style={{ marginTop: '4px' }}>
                         <small style={{ color: 'red', display: 'block', marginBottom: '4px', fontSize: '0.75rem' }}>{imageSearchError}</small>
