@@ -25,6 +25,7 @@ function App() {
   const [originalQuantity, setOriginalQuantity] = useState<number | null>(null);
   const [isApiFetched, setIsApiFetched] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [forceUpdateRequestId, setForceUpdateRequestId] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -274,17 +275,12 @@ function App() {
   };
 
   const handleCheckUpdate = () => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistration().then(registration => {
-        if (registration) {
-          registration.update().then(() => {
-            alert("アップデートを確認しました。新しいバージョンがある場合は、次回の起動時またはリロード時に適用されます。");
-          });
-        } else {
-          alert("PWAとして登録されていません。");
-        }
-      });
+    if (!('serviceWorker' in navigator)) {
+      alert("このブラウザはアップデート機能に対応していません。");
+      return;
     }
+
+    setForceUpdateRequestId((current) => current + 1);
   };
 
   const isInputLocked = isExistingItem || isApiFetched;
@@ -298,7 +294,7 @@ function App() {
 
   return (
     <div className="app-container">
-      <ReloadPrompt />
+      <ReloadPrompt forceUpdateRequestId={forceUpdateRequestId} />
 
       <main className="app-main">
         {activeTab === 'scan' && (
@@ -606,10 +602,10 @@ function App() {
                 <h3>システム</h3>
                 <div className="form-actions" style={{ flexDirection: 'column', gap: '0.5rem' }}>
                   <button className="btn btn-outline" onClick={handleCheckUpdate} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-                    <RefreshCw className="icon" /> アップデートを確認する
+                    <RefreshCw className="icon" /> アップデートする
                   </button>
                 </div>
-                <small>※ 最新バージョンがないか確認します。ブラウザのキャッシュを更新します。</small>
+                <small>※ 最新コードを強制取得して再起動します。新しいバージョンがあれば自動で適用します。</small>
               </div>
 
               <div className="danger-zone mt-4">
