@@ -66,30 +66,40 @@ function App() {
 
     const searchUrl = `https://serpapi.com/search.json?${params.toString()}`;
     
-    const fetchViaProxy = async (proxyBaseUrl: string) => {
+    const proxies = [
+      'https://corsproxy.io/?url=',
+      'https://api.allorigins.win/get?url='
+    ];
+
+    let lastError = '画像検索に失敗しました';
+
+    for (const proxyBaseUrl of proxies) {
       const targetUrl = encodeURIComponent(searchUrl);
       const proxyUrl = proxyBaseUrl + targetUrl;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20秒に延長
+      const timeoutId = setTimeout(() => controller.abort(), 20000); 
+      
       try {
-        const response = await fetch(proxyUrl, { signal: controller.signal });
-        if (!response.ok) throw new Error(`プロキシ通信エラー (${response.status})`);
+        const response = await fetch(proxyUrl, { 
+          signal: controller.signal,
+          mode: 'cors',
+          cache: 'no-cache'
+        });
+        
+        if (!response.ok) throw new Error(`プロキシ応答エラー (${response.status})`);
         
         const proxyData = await response.json();
         let data;
 
         if (proxyUrl.includes('allorigins')) {
-          if (!proxyData.contents) throw new Error("プロキシ(AllOrigins)からの応答が空です");
+          if (!proxyData.contents) throw new Error("プロキシ応答が空です");
           data = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
         } else {
           data = proxyData;
         }
         
-        // SerpApi 自体のエラーをチェック
-        if (data && data.error) {
-          throw new Error(`SerpApiエラー: ${data.error}`);
-        }
+        if (data && data.error) throw new Error(`SerpApi: ${data.error}`);
 
         if (data && data.images_results && Array.isArray(data.images_results) && data.images_results.length > 0) {
           const firstResult = data.images_results[0];
@@ -97,26 +107,20 @@ function App() {
         }
         throw new Error("検索結果に画像が見つかりませんでした");
       } catch (error: any) {
+        console.warn(`Proxy ${proxyBaseUrl} failed:`, error);
         if (error.name === 'AbortError') {
-          throw new Error("通信がタイムアウトしました。電波の良い場所で再試行してください。");
+          lastError = "通信がタイムアウトしました。";
+        } else {
+          lastError = error.message;
         }
-        throw error;
+        // 次のプロキシを試す
+        continue;
       } finally {
         clearTimeout(timeoutId);
       }
-    };
-
-    try {
-      // 複数のプロキシで同時に検索を開始
-      return await Promise.any([
-        fetchViaProxy('https://api.allorigins.win/get?url='),
-        fetchViaProxy('https://corsproxy.io/?url=')
-      ]);
-    } catch (error: any) {
-      // Promise.any はすべて失敗すると AggregateError を投げる
-      const message = error.errors ? error.errors[0].message : error.message;
-      throw new Error(message || '画像検索に失敗しました');
     }
+
+    throw new Error(lastError);
   };
 
   const fetchProductInfo = async (janCode: string): Promise<{name: string, manufacturer: string, imageUrl: string | null, source: string} | null> => {
