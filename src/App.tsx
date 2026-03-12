@@ -26,6 +26,7 @@ function App() {
   const [isSearchingImage, setIsSearchingImage] = useState(false);
   const [imageSearchError, setImageSearchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [scannedInfoSource, setScannedInfoSource] = useState<string | null>(null);
   const [forceUpdateRequestId, setForceUpdateRequestId] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -102,7 +103,7 @@ function App() {
     }
   };
 
-  const fetchProductInfo = async (janCode: string): Promise<{name: string, manufacturer: string, imageUrl: string | null} | null> => {
+  const fetchProductInfo = async (janCode: string): Promise<{name: string, manufacturer: string, imageUrl: string | null, source: string} | null> => {
     setApiError(null);
     setIsFetchingName(true);
 
@@ -169,7 +170,8 @@ function App() {
           return {
             name: item.name,
             manufacturer: item.brand?.name || "",
-            imageUrl: item.image?.medium || item.image?.small || null
+            imageUrl: item.image?.medium || item.image?.small || null,
+            source: "Yahoo!ショッピング"
           };
         }
       } catch (error) {
@@ -189,7 +191,8 @@ function App() {
           return {
             name: data.product.product_name || data.product.product_name_ja || "",
             manufacturer: data.product.brands || "",
-            imageUrl: data.product.image_url || data.product.image_front_url || null
+            imageUrl: data.product.image_url || data.product.image_front_url || null,
+            source: "Open Food Facts"
           };
         }
       } catch (error) {
@@ -237,7 +240,8 @@ function App() {
           return {
             name: firstResult.title || "",
             manufacturer: "", 
-            imageUrl: firstResult.original || firstResult.thumbnail || null
+            imageUrl: firstResult.original || firstResult.thumbnail || null,
+            source: "SerpApi (Google Images)"
           };
         }
       } catch (error) {
@@ -275,6 +279,7 @@ function App() {
     setScannedJan(decodedText);
     setApiError(null);
     setImageSearchError(null);
+    setScannedInfoSource(null);
     
     const existingItem = items.find(item => item.janCode === decodedText);
     
@@ -300,6 +305,7 @@ function App() {
         setProductNameInput(info.name);
         setManufacturerInput(info.manufacturer);
         setImageUrlInput(info.imageUrl);
+        setScannedInfoSource(info.source);
       }
     }
   };
@@ -382,6 +388,7 @@ function App() {
     setIsExistingItem(false);
     setOriginalQuantity(null);
     setImageSearchError(null);
+    setScannedInfoSource(null);
   };
 
   const handleCancelScan = () => {
@@ -392,6 +399,7 @@ function App() {
       setImageUrlInput(null);
       setCategoryInput("");
       setImageSearchError(null);
+      setScannedInfoSource(null);
     }
   };
 
@@ -596,6 +604,11 @@ function App() {
                         <Loader2 className="spinner" style={{ position: 'absolute', right: '10px', top: '10px', color: 'var(--primary-color)' }} />
                       )}
                     </div>
+                    {scannedInfoSource && !isFetchingName && (
+                      <div style={{ marginTop: '4px' }}>
+                        <span className="badge badge-info" style={{ fontSize: '0.7rem', opacity: 0.8 }}>取得元: {scannedInfoSource}</span>
+                      </div>
+                    )}
                     {apiError && (
                       <div style={{ marginTop: '4px' }}>
                         <small style={{ color: 'red', display: 'block', marginBottom: '4px', fontSize: '0.75rem' }}>{apiError}</small>
