@@ -59,16 +59,18 @@ function App() {
       google_domain: "google.co.jp",
       hl: "ja",
       gl: "jp",
+      num: "10", // レスポンスサイズを小さくするために件数を制限
       q: query,
       api_key: serpApiKey,
-      _ : Date.now().toString() // キャッシュ回避
+      _ : Date.now().toString()
     });
 
     const searchUrl = `https://serpapi.com/search.json?${params.toString()}`;
     
     const proxies = [
       'https://corsproxy.io/?url=',
-      'https://api.allorigins.win/get?url='
+      'https://api.allorigins.win/get?url=',
+      'https://api.codetabs.com/v1/proxy?quest='
     ];
 
     let lastError = '画像検索に失敗しました';
@@ -81,10 +83,9 @@ function App() {
       const timeoutId = setTimeout(() => controller.abort(), 20000); 
       
       try {
+        // iOS Safari で Load failed を防ぐため、オプションを最小限にする
         const response = await fetch(proxyUrl, { 
-          signal: controller.signal,
-          mode: 'cors',
-          cache: 'no-cache'
+          signal: controller.signal
         });
         
         if (!response.ok) throw new Error(`プロキシ応答エラー (${response.status})`);
