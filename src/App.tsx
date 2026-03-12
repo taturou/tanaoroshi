@@ -212,16 +212,16 @@ function App() {
     };
 
     try {
-      // 1. Yahoo! APIを試す
-      const yahooResult = await fetchFromYahoo();
+      // 全ての経路で同時に取得を開始
+      const [yahooResult, offResult, serpResult] = await Promise.all([
+        fetchFromYahoo(),
+        fetchFromOpenFoodFacts(),
+        fetchFromSerpApi()
+      ]);
+      
+      // 優先順位に従って結果を採用する: Yahoo > Open Food Facts > SerpApi
       if (yahooResult) return yahooResult;
-
-      // 2. Open Food Facts APIを試す
-      const offResult = await fetchFromOpenFoodFacts();
       if (offResult) return offResult;
-
-      // 3. どちらもダメなら SerpApi で検索（最後の手段）
-      const serpResult = await fetchFromSerpApi();
       if (serpResult) return serpResult;
 
       setApiError("商品が見つかりませんでした。商品名を手入力し、必要なら画像を探してください。");
