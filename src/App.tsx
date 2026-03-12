@@ -70,19 +70,21 @@ function App() {
         const response = await fetch(proxyUrl, { signal: controller.signal });
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
         
+        const proxyData = await response.json();
         let data;
+
         if (proxyUrl.includes('allorigins')) {
-          const proxyData = await response.json();
           if (!proxyData.contents) throw new Error("Invalid allorigins response");
           data = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
         } else {
-          data = await response.json();
+          data = proxyData;
         }
         
-        if (data && data.images_results && data.images_results.length > 0) {
-          return data.images_results[0].original || data.images_results[0].thumbnail || null;
+        if (data && data.images_results && Array.isArray(data.images_results) && data.images_results.length > 0) {
+          const firstResult = data.images_results[0];
+          return firstResult.original || firstResult.thumbnail || null;
         }
-        throw new Error("No image results");
+        throw new Error("No image results in SerpApi response");
       } finally {
         clearTimeout(timeoutId);
       }
@@ -221,14 +223,20 @@ function App() {
         
         const response = await fetch(proxyUrl);
         if (!response.ok) return null;
-        const data = await response.json();
-        const serpData = JSON.parse(data.contents);
+        const proxyData = await response.json();
         
-        if (serpData.images_results && serpData.images_results.length > 0) {
+        let serpData;
+        if (proxyData.contents) {
+          serpData = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
+        } else {
+          serpData = proxyData;
+        }
+        
+        if (serpData && serpData.images_results && Array.isArray(serpData.images_results) && serpData.images_results.length > 0) {
           const firstResult = serpData.images_results[0];
           return {
             name: firstResult.title || "",
-            manufacturer: "", // タイトルから分離するのは難しいため空
+            manufacturer: "", 
             imageUrl: firstResult.original || firstResult.thumbnail || null
           };
         }
