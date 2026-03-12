@@ -122,31 +122,44 @@ function App() {
       }
 
       // 2. 直接通信がダメな場合、プロキシを経由する
-      const targetUrl = encodeURIComponent(baseUrl);
-      // キャッシュを避けるためにタイムスタンプを付与
-      const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}&_=${Date.now()}`;
+      // キャッシュを避けるためにタイムスタンプを付加したURLを構築
+      const baseUrlWithBuster = `${baseUrl}&_=${Date.now()}`;
+      const targetUrl = encodeURIComponent(baseUrlWithBuster);
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-      try {
-        const response = await fetch(proxyUrl, { signal: controller.signal });
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-        const proxyData = await response.json();
-        if (!proxyData.contents) throw new Error("Invalid allorigins response");
-        const data = JSON.parse(proxyData.contents);
-        
-        if (data.hits && data.hits.length > 0) {
-          const item = data.hits[0];
-          return {
-            name: item.name,
-            manufacturer: item.brand?.name || "",
-            imageUrl: item.image?.medium || item.image?.small || null
-          };
+      const proxies = [
+        `https://api.allorigins.win/get?url=${targetUrl}`,
+        `https://corsproxy.io/?url=${targetUrl}`
+      ];
+
+      for (const proxyUrl of proxies) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        try {
+          const response = await fetch(proxyUrl, { signal: controller.signal });
+          if (!response.ok) continue;
+          
+          let data;
+          if (proxyUrl.includes('allorigins')) {
+            const proxyData = await response.json();
+            if (!proxyData.contents) continue;
+            data = JSON.parse(proxyData.contents);
+          } else {
+            data = await response.json();
+          }
+          
+          if (data.hits && data.hits.length > 0) {
+            const item = data.hits[0];
+            return {
+              name: item.name,
+              manufacturer: item.brand?.name || "",
+              imageUrl: item.image?.medium || item.image?.small || null
+            };
+          }
+        } catch (error) {
+          console.error(`Yahoo proxy fetch failed for ${proxyUrl}:`, error);
+        } finally {
+          clearTimeout(timeoutId);
         }
-      } catch (error) {
-        console.error("Yahoo proxy fetch failed:", error);
-      } finally {
-        clearTimeout(timeoutId);
       }
       return null;
     };
