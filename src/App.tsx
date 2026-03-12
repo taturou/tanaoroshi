@@ -98,8 +98,33 @@ function App() {
 
     const fetchFromYahoo = async () => {
       if (!clientId) return null;
-      const targetUrl = encodeURIComponent(`https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`);
-      const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}`;
+      const baseUrl = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`;
+      
+      // 1. まず直接通信を試みる (CORSで失敗する可能性が高いが、通れば最速)
+      try {
+        const directController = new AbortController();
+        const directTimeout = setTimeout(() => directController.abort(), 3000);
+        const directResponse = await fetch(baseUrl, { signal: directController.signal });
+        clearTimeout(directTimeout);
+        if (directResponse.ok) {
+          const data = await directResponse.json();
+          if (data.hits && data.hits.length > 0) {
+            const item = data.hits[0];
+            return {
+              name: item.name,
+              manufacturer: item.brand?.name || "",
+              imageUrl: item.image?.medium || item.image?.small || null
+            };
+          }
+        }
+      } catch (e) {
+        console.log("Yahoo direct fetch failed (CORS or timeout), trying proxy...");
+      }
+
+      // 2. 直接通信がダメな場合、プロキシを経由する
+      const targetUrl = encodeURIComponent(baseUrl);
+      // キャッシュを避けるためにタイムスタンプを付与
+      const proxyUrl = `https://api.allorigins.win/get?url=${targetUrl}&_=${Date.now()}`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -119,7 +144,7 @@ function App() {
           };
         }
       } catch (error) {
-        console.error("Yahoo fetch failed:", error);
+        console.error("Yahoo proxy fetch failed:", error);
       } finally {
         clearTimeout(timeoutId);
       }
