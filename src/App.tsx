@@ -48,43 +48,43 @@ function App() {
 
     const searchUrl = `https://serpapi.com/search.json?engine=google_images&q=${encodeURIComponent(query)}&api_key=${serpApiKey}`;
     
-    // Yahooの時と同様、複数のプロキシを試して信頼性を上げる
-    const proxies = [
-      {
-        url: `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}&_=${Date.now()}`,
-        parser: async (response: Response) => {
+    const fetchViaProxy = async (proxyBaseUrl: string) => {
+      const urlWithBuster = `${searchUrl}&_=${Date.now()}`;
+      const targetUrl = encodeURIComponent(urlWithBuster);
+      const proxyUrl = proxyBaseUrl.includes('allorigins') 
+        ? `${proxyBaseUrl}${targetUrl}`
+        : `${proxyBaseUrl}${targetUrl}`;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); 
+      try {
+        const response = await fetch(proxyUrl, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        
+        let data;
+        if (proxyUrl.includes('allorigins')) {
           const proxyData = await response.json();
           if (!proxyData.contents) throw new Error("Invalid allorigins response");
-          return JSON.parse(proxyData.contents);
+          data = JSON.parse(proxyData.contents);
+        } else {
+          data = await response.json();
         }
-      },
-      {
-        url: `https://corsproxy.io/?url=${encodeURIComponent(searchUrl)}`,
-        parser: async (response: Response) => response.json()
-      }
-    ];
-
-    const fetchFromProxy = async ({ url, parser }: { url: string, parser: (res: Response) => Promise<any> }) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒に延長
-      try {
-        const response = await fetch(url, { signal: controller.signal });
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-        return await parser(response);
+        
+        if (data.images_results && data.images_results.length > 0) {
+          return data.images_results[0].original || data.images_results[0].thumbnail || null;
+        }
+        throw new Error("No image results");
       } finally {
         clearTimeout(timeoutId);
       }
     };
 
     try {
-      // どちらかのプロキシが成功すればOK
-      const serpData = await Promise.any(proxies.map(proxy => fetchFromProxy(proxy)));
-      
-      if (serpData.images_results && serpData.images_results.length > 0) {
-        // 最初の画像のオリジナルURLかサムネイルを返す
-        return serpData.images_results[0].original || serpData.images_results[0].thumbnail || null;
-      }
-      return null;
+      // 複数のプロキシで同時に検索を開始
+      return await Promise.any([
+        fetchViaProxy('https://api.allorigins.win/get?url='),
+        fetchViaProxy('https://corsproxy.io/?url=')
+      ]);
     } catch (error) {
       console.error('SerpApi image search failed across all proxies:', error);
       return null;
