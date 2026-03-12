@@ -150,12 +150,15 @@ function App() {
     setYahooCORSStatus('loading');
     setOffStatus('loading');
 
-    const yahooV2Url = `https://shopping.yahooapis.jp/ShoppingWebService/V2/itemSearch?appid=${clientId}&jan_code=${janCode}`;
-
     const fetchYahoo = async (proxyBase: 'allorigins' | 'corsproxy') => {
-      if (!clientId || isYahooLimitReached) return null;
+      if (!clientId || isYahooLimitReached) {
+        if (proxyBase === 'allorigins') setYahooAllStatus(isYahooLimitReached ? 'limit' : 'idle');
+        else setYahooCORSStatus(isYahooLimitReached ? 'limit' : 'idle');
+        return null;
+      }
       
-      const targetUrl = encodeURIComponent(`${yahooV2Url}&_=${Date.now()}`);
+      const baseUrl = `https://shopping.yahooapis.jp/ShoppingWebService/V2/itemSearch?appid=${clientId}&jan_code=${janCode}`;
+      const targetUrl = encodeURIComponent(`${baseUrl}&_=${Date.now()}`);
       const proxyUrl = proxyBase === 'allorigins' 
         ? `https://api.allorigins.win/get?url=${targetUrl}&cache=${Date.now()}`
         : `https://corsproxy.io/?url=${targetUrl}&cache=${Date.now()}`;
@@ -167,10 +170,13 @@ function App() {
       try {
         const response = await fetch(proxyUrl, { signal: controller.signal });
         if (!response.ok) {
+          console.warn(`Yahoo V2 ${proxyBase} HTTP error: ${response.status}`);
           if (response.status === 403 || response.status === 429) {
             setIsYahooLimitReached(true);
             setYahooAllStatus('limit');
             setYahooCORSStatus('limit');
+          } else {
+            statusSetter('error');
           }
           return null;
         }
@@ -178,7 +184,10 @@ function App() {
         const proxyData = await response.json();
         let data;
         if (proxyBase === 'allorigins') {
-          if (!proxyData.contents) return null;
+          if (!proxyData.contents) {
+            statusSetter('error');
+            return null;
+          }
           data = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
         } else {
           data = proxyData;
@@ -186,27 +195,34 @@ function App() {
         
         if (data.Error) {
           const errCode = String(data.Error.Code);
+          console.warn(`Yahoo V2 ${proxyBase} API error: ${errCode}`);
           if (errCode === "403" || errCode === "429") {
             setIsYahooLimitReached(true);
             setYahooAllStatus('limit');
             setYahooCORSStatus('limit');
+          } else {
+            statusSetter('error');
           }
           return null;
         }
 
-        // V2形式のパース (ResultSet.Result[0])
-        if (data.ResultSet && data.ResultSet.totalResultsAvailable > 0) {
-          const item = data.ResultSet["0"].Result["0"];
+        // V2形式のパース (より安全なアクセス)
+        const result = data?.ResultSet?.["0"]?.Result?.["0"] || data?.ResultSet?.Result?.[0];
+        if (result) {
           statusSetter('success');
           return {
-            name: item.Name,
-            manufacturer: item.Brand?.Name || "",
-            imageUrl: item.Image?.Medium || item.Image?.Small || null,
+            name: result.Name || result.name || "",
+            manufacturer: result.Brand?.Name || result.brand?.name || "",
+            imageUrl: result.Image?.Medium || result.image?.medium || result.Image?.Small || null,
             source: `Yahoo! V2 (${proxyBase === 'allorigins' ? 'AllOrigins' : 'CORSProxy'})`
           };
         }
-      } catch (error) {
-        console.error(`Yahoo V2 ${proxyBase} failed:`, error);
+        
+        console.log(`Yahoo V2 ${proxyBase}: No results found`);
+        statusSetter('error');
+      } catch (error: any) {
+        console.error(`Yahoo V2 ${proxyBase} network/parse error:`, error);
+        statusSetter(error.name === 'AbortError' ? 'error' : 'error');
       } finally {
         clearTimeout(timeoutId);
       }
