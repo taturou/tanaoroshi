@@ -99,66 +99,70 @@ function App() {
       if (!clientId) return null;
       const baseUrl = `https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=${clientId}&jan_code=${janCode}`;
       
-      // 1. まず直接通信を試みる (CORSで失敗する可能性が高いが、通れば最速)
-      try {
-        const directController = new AbortController();
-        const directTimeout = setTimeout(() => directController.abort(), 3000);
-        const directResponse = await fetch(baseUrl, { signal: directController.signal });
-        clearTimeout(directTimeout);
-        if (directResponse.ok) {
-          const data = await directResponse.json();
-          if (data.hits && data.hits.length > 0) {
-            const item = data.hits[0];
-            return {
-              name: item.name,
-              manufacturer: item.brand?.name || "",
-              imageUrl: item.image?.medium || item.image?.small || null
-            };
+      const fetchDirect = async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        try {
+          const response = await fetch(baseUrl, { signal: controller.signal });
+          clearTimeout(timeout);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.hits && data.hits.length > 0) return data;
           }
+          throw new Error("Direct fetch failed");
+        } catch (e) {
+          clearTimeout(timeout);
+          throw e;
         }
-      } catch (e) {
-        console.log("Yahoo direct fetch failed (CORS or timeout), trying proxy...");
-      }
+      };
 
-      // 2. 直接通信がダメな場合、プロキシを経由する
-      // キャッシュを避けるためにタイムスタンプを付加したURLを構築
-      const baseUrlWithBuster = `${baseUrl}&_=${Date.now()}`;
-      const targetUrl = encodeURIComponent(baseUrlWithBuster);
-      
-      const proxies = [
-        `https://api.allorigins.win/get?url=${targetUrl}`,
-        `https://corsproxy.io/?url=${targetUrl}`
-      ];
-
-      for (const proxyUrl of proxies) {
+      const fetchViaProxy = async (proxyBaseUrl: string) => {
+        const baseUrlWithBuster = `${baseUrl}&_=${Date.now()}`;
+        const targetUrl = encodeURIComponent(baseUrlWithBuster);
+        const proxyUrl = proxyBaseUrl.includes('allorigins') 
+          ? `${proxyBaseUrl}${targetUrl}`
+          : `${proxyBaseUrl}${targetUrl}`;
+        
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
         try {
           const response = await fetch(proxyUrl, { signal: controller.signal });
-          if (!response.ok) continue;
+          if (!response.ok) throw new Error(`Proxy Error: ${response.status}`);
           
           let data;
           if (proxyUrl.includes('allorigins')) {
             const proxyData = await response.json();
-            if (!proxyData.contents) continue;
+            if (!proxyData.contents) throw new Error("Invalid allorigins response");
             data = JSON.parse(proxyData.contents);
           } else {
             data = await response.json();
           }
           
-          if (data.hits && data.hits.length > 0) {
-            const item = data.hits[0];
-            return {
-              name: item.name,
-              manufacturer: item.brand?.name || "",
-              imageUrl: item.image?.medium || item.image?.small || null
-            };
-          }
-        } catch (error) {
-          console.error(`Yahoo proxy fetch failed for ${proxyUrl}:`, error);
+          if (data.hits && data.hits.length > 0) return data;
+          throw new Error("No hits via proxy");
         } finally {
           clearTimeout(timeoutId);
         }
+      };
+
+      try {
+        // 直接通信と2つのプロキシを同時に開始
+        const data = await Promise.any([
+          fetchDirect(),
+          fetchViaProxy('https://api.allorigins.win/get?url='),
+          fetchViaProxy('https://corsproxy.io/?url=')
+        ]);
+
+        if (data && data.hits && data.hits.length > 0) {
+          const item = data.hits[0];
+          return {
+            name: item.name,
+            manufacturer: item.brand?.name || "",
+            imageUrl: item.image?.medium || item.image?.small || null
+          };
+        }
+      } catch (error) {
+        console.error("All Yahoo fetch attempts failed:", error);
       }
       return null;
     };
