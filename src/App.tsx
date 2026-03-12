@@ -49,8 +49,7 @@ function App() {
 
   const fetchGoogleImageUrl = async (query: string): Promise<string | null> => {
     if (!serpApiKey) {
-      console.warn('SerpApi key is not set');
-      return null;
+      throw new Error('SerpApiのキーが設定されていません。設定画面で確認してください。');
     }
 
     // 公式サンプルに基づいた日本向けパラメータを追加
@@ -75,23 +74,28 @@ function App() {
       const timeoutId = setTimeout(() => controller.abort(), 10000); 
       try {
         const response = await fetch(proxyUrl, { signal: controller.signal });
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        if (!response.ok) throw new Error(`プロキシ通信エラー (${response.status})`);
         
         const proxyData = await response.json();
         let data;
 
         if (proxyUrl.includes('allorigins')) {
-          if (!proxyData.contents) throw new Error("Invalid allorigins response");
+          if (!proxyData.contents) throw new Error("プロキシ(AllOrigins)からの応答が空です");
           data = typeof proxyData.contents === 'string' ? JSON.parse(proxyData.contents) : proxyData.contents;
         } else {
           data = proxyData;
         }
         
+        // SerpApi 自体のエラーをチェック
+        if (data && data.error) {
+          throw new Error(`SerpApiエラー: ${data.error}`);
+        }
+
         if (data && data.images_results && Array.isArray(data.images_results) && data.images_results.length > 0) {
           const firstResult = data.images_results[0];
           return firstResult.original || firstResult.thumbnail || null;
         }
-        throw new Error("No image results in SerpApi response");
+        throw new Error("検索結果に画像が見つかりませんでした");
       } finally {
         clearTimeout(timeoutId);
       }
@@ -103,9 +107,10 @@ function App() {
         fetchViaProxy('https://api.allorigins.win/get?url='),
         fetchViaProxy('https://corsproxy.io/?url=')
       ]);
-    } catch (error) {
-      console.error('SerpApi image search failed across all proxies:', error);
-      return null;
+    } catch (error: any) {
+      // Promise.any はすべて失敗すると AggregateError を投げる
+      const message = error.errors ? error.errors[0].message : error.message;
+      throw new Error(message || '画像検索に失敗しました');
     }
   };
 
@@ -335,15 +340,10 @@ function App() {
 
     try {
       const foundImageUrl = await fetchGoogleImageUrl(query);
-      if (!foundImageUrl) {
-        setImageSearchError('画像が見つかりませんでした。商品名やメーカー名を調整してください。');
-        return;
-      }
-
       setImageUrlInput(foundImageUrl);
-    } catch (error) {
+    } catch (error: any) {
       console.error('SerpApi image search failed:', error);
-      setImageSearchError('画像検索に失敗しました。時間をおいて再試行してください。');
+      setImageSearchError(error.message || '画像検索に失敗しました。');
     } finally {
       setIsSearchingImage(false);
     }
@@ -364,15 +364,10 @@ function App() {
 
     try {
       const foundImageUrl = await fetchGoogleImageUrl(query);
-      if (!foundImageUrl) {
-        setEditingImageSearchError('画像が見つかりませんでした。商品名やメーカー名を調整してください。');
-        return;
-      }
-
       setEditingItem((current) => current ? { ...current, imageUrl: foundImageUrl } : current);
-    } catch (error) {
+    } catch (error: any) {
       console.error('SerpApi image search failed:', error);
-      setEditingImageSearchError('画像検索に失敗しました。時間をおいて再試行してください。');
+      setEditingImageSearchError(error.message || '画像検索に失敗しました。');
     } finally {
       setIsEditingImageSearching(false);
     }
