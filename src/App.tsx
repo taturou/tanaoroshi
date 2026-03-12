@@ -8,7 +8,7 @@ import './index.css'
 
 function App() {
   const { items, addOrUpdateItem, updateQuantity, removeItem, clearAll, exportCSV, importCSV } = useInventory();
-  const { clientId, setClientId, userName, setUserName, categories, addCategory } = useSettings();
+  const { clientId, setClientId, userName, setUserName, serpApiKey, setSerpApiKey, categories, addCategory } = useSettings();
   const [activeTab, setActiveTab] = useState<'scan' | 'list' | 'settings'>('scan');
   
   // スキャン中の状態管理
@@ -37,274 +37,6 @@ function App() {
   const [isEditingImageSearching, setIsEditingImageSearching] = useState(false);
   const [editingImageSearchError, setEditingImageSearchError] = useState<string | null>(null);
 
-  const decodeEscapedHtml = (value: string) =>
-    value
-      .replace(/\\u003d/g, '=')
-      .replace(/\\u0026/g, '&')
-      .replace(/\\u002f/gi, '/')
-      .replace(/\\\//g, '/')
-      .replace(/&amp;/g, '&');
-
-  const normalizeSearchText = (value: string) =>
-    decodeEscapedHtml(value)
-      .normalize('NFKC')
-      .toLowerCase()
-      .replace(/[\u201c\u201d"'`]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-  const buildSearchTerms = (query: string) => {
-    const quotedTerms = Array.from(query.matchAll(/"([^"]+)"/g))
-      .map((match) => normalizeSearchText(match[1]))
-      .filter(Boolean);
-    const normalizedQuery = normalizeSearchText(query);
-    const splitTerms = normalizedQuery
-      .split(' ')
-      .map((term) => term.trim())
-      .filter((term) => term.length >= 2);
-
-    return Array.from(new Set([...quotedTerms, normalizedQuery, ...splitTerms].filter(Boolean)));
-  };
-
-  const getTagAttribute = (tag: string, attributeName: string) => {
-    const quotedMatch = tag.match(new RegExp(`\\b${attributeName}\\s*=\\s*(['"])(.*?)\\1`, 'i'));
-    if (quotedMatch) return quotedMatch[2];
-
-    const unquotedMatch = tag.match(new RegExp(`\\b${attributeName}\\s*=\\s*([^\\s>]+)`, 'i'));
-    return unquotedMatch?.[1] || '';
-  };
-
-  const extractDocumentTitle = (html: string) => {
-    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    return titleMatch ? titleMatch[1].replace(/\s+/g, ' ').trim() : '';
-  };
-
-  const cleanCandidateValue = (value: string) =>
-    decodeEscapedHtml(value)
-      .trim()
-      .replace(/^['"]+/, '')
-      .replace(/['"]+$/, '');
-
-  const safeDecodeURIComponent = (value: string) => {
-    try {
-      return decodeURIComponent(value);
-    } catch {
-      return value;
-    }
-  };
-
-  const isObviouslyBadImageText = (value: string) =>
-    /(logo|icon|sprite|favicon|avatar|placeholder|noimage|banner|privacycenter|lylogo|header_|footer_|share|sns|1x1|spacer|blank|btn_|button|loader|loading|fast-step|relation_info|recommend\/image|footer_mark|header_tel|category\/header)/i.test(
-      value
-    );
-
-  const isLikelyImageUrl = (url: string) => {
-    const normalized = cleanCandidateValue(url);
-    if (!/^https?:\/\//i.test(normalized)) return false;
-
-    const lower = normalized.toLowerCase();
-    if (
-      lower.startsWith('data:') ||
-      lower.includes('google.com/images') ||
-      lower.includes('gstatic.com/images') ||
-      lower.endsWith('.svg')
-    ) {
-      return false;
-    }
-
-    return true;
-  };
-
-  const normalizeCandidateUrl = (rawUrl: string, baseUrl = 'https://www.google.com') => {
-    const cleanedValue = cleanCandidateValue(rawUrl);
-    try {
-      const parsedUrl = new URL(cleanedValue, baseUrl);
-      const embeddedImageUrl = parsedUrl.searchParams.get('imgurl') || parsedUrl.searchParams.get('mediaurl');
-      if (embeddedImageUrl) return safeDecodeURIComponent(embeddedImageUrl);
-
-      const mediaUrl = parsedUrl.searchParams.get('media');
-      if (mediaUrl) return safeDecodeURIComponent(mediaUrl);
-
-      return parsedUrl.toString();
-    } catch {
-      return cleanedValue;
-    }
-  };
-
-  const extractGoogleResultLinks = (html: string) => {
-    const normalizedHtml = decodeEscapedHtml(html);
-    const directLinks = Array.from(normalizedHtml.matchAll(/href="([^"]+)"/g))
-      .map((match) => match[1])
-      .filter((href) => href.startsWith('/url?'))
-      .map((href) => {
-        try {
-          return new URL(href, 'https://www.google.com').searchParams.get('q') || '';
-        } catch {
-          return '';
-        }
-      });
-
-    const regexLinks = Array.from(normalizedHtml.matchAll(/\/url\?q=([^"'&<>\s]+)/g))
-      .map((match) => {
-        try {
-          return safeDecodeURIComponent(match[1]);
-        } catch {
-          return match[1];
-        }
-      });
-
-    return Array.from(new Set([...directLinks, ...regexLinks]))
-      .map((link) => cleanCandidateValue(link))
-      .filter((link) => /^https?:\/\//i.test(link))
-      .filter((link) => !/google\./i.test(link));
-  };
-
-  const extractImageCandidates = (html: string, baseUrl: string) => {
-    const normalizedHtml = decodeEscapedHtml(html);
-    const candidates: Array<{ url: string; context: string }> = [];
-
-    for (const match of normalizedHtml.matchAll(/<(img|source)\b[^>]*>/gi)) {
-      const tag = match[0];
-      const alt = getTagAttribute(tag, 'alt');
-      const srcCandidates = [
-        getTagAttribute(tag, 'src'),
-        getTagAttribute(tag, 'data-src'),
-        getTagAttribute(tag, 'data-original'),
-        getTagAttribute(tag, 'data-lazy-src')
-      ].filter(Boolean);
-
-      const srcSetCandidates = (getTagAttribute(tag, 'srcset') || '')
-        .split(',')
-        .map((entry) => entry.trim().split(' ')[0])
-        .filter(Boolean);
-
-      for (const rawCandidate of [...srcCandidates, ...srcSetCandidates]) {
-        const url = normalizeCandidateUrl(rawCandidate, baseUrl);
-        if (!isLikelyImageUrl(url)) continue;
-        candidates.push({ url, context: `${alt} ${tag}` });
-      }
-    }
-
-    for (const match of normalizedHtml.matchAll(/<meta\b[^>]*>/gi)) {
-      const tag = match[0];
-      const property = normalizeSearchText(
-        getTagAttribute(tag, 'property') || getTagAttribute(tag, 'name')
-      );
-      const content = getTagAttribute(tag, 'content');
-      if (!content) continue;
-      if (
-        property === 'og:image' ||
-        property === 'og:image:secure_url' ||
-        property === 'twitter:image' ||
-        property === 'twitter:image:src'
-      ) {
-        const url = normalizeCandidateUrl(content, baseUrl);
-        if (!isLikelyImageUrl(url)) continue;
-        candidates.push({ url, context: tag });
-      }
-    }
-
-    for (const match of normalizedHtml.matchAll(/<link\b[^>]*>/gi)) {
-      const tag = match[0];
-      const rel = normalizeSearchText(getTagAttribute(tag, 'rel'));
-      if (rel !== 'image_src') continue;
-      const href = getTagAttribute(tag, 'href');
-      if (!href) continue;
-      const url = normalizeCandidateUrl(href, baseUrl);
-      if (!isLikelyImageUrl(url)) continue;
-      candidates.push({ url, context: tag });
-    }
-
-    const embeddedGoogleImages = Array.from(normalizedHtml.matchAll(/(?:imgurl|mediaurl)=([^&"'\\\s<>]+)/g))
-      .map((match) => {
-        try {
-          return safeDecodeURIComponent(match[1]);
-        } catch {
-          return match[1];
-        }
-      })
-      .filter(Boolean);
-
-    for (const rawCandidate of embeddedGoogleImages) {
-      const url = normalizeCandidateUrl(rawCandidate, baseUrl);
-      if (!isLikelyImageUrl(url)) continue;
-      candidates.push({ url, context: '' });
-    }
-
-    const deduped = Array.from(
-      new Map(
-        candidates.map((candidate) => [
-          candidate.url,
-          {
-            url: candidate.url,
-            context: candidate.context
-          }
-        ])
-      ).values()
-    );
-
-    return deduped;
-  };
-
-  const calculateTermScore = (text: string, searchTerms: string[]) => {
-    const normalizedText = normalizeSearchText(text);
-    if (!normalizedText) return 0;
-
-    return searchTerms.reduce((score, term) => {
-      if (!term || !normalizedText.includes(term)) return score;
-      if (term.includes(' ')) return score + 12;
-      return score + Math.min(8, Math.max(4, term.length * 2));
-    }, 0);
-  };
-
-  const scoreImageCandidate = (
-    candidate: { url: string; context: string; pageUrl?: string; pageTitle?: string },
-    searchTerms: string[]
-  ) => {
-    const decodedUrl = safeDecodeURIComponent(candidate.url);
-    const normalizedUrl = decodedUrl.toLowerCase();
-    const pageText = `${candidate.pageTitle || ''} ${candidate.pageUrl || ''}`;
-    const candidateText = `${candidate.context} ${decodedUrl}`;
-    let score = calculateTermScore(pageText, searchTerms) * 3;
-    score += calculateTermScore(candidateText, searchTerms) * 6;
-
-    if (candidate.pageUrl) {
-      try {
-        const pageHost = new URL(candidate.pageUrl).hostname.replace(/^www\./, '');
-        const imageHost = new URL(candidate.url).hostname.replace(/^www\./, '');
-        if (pageHost === imageHost) score += 5;
-      } catch {
-        // noop
-      }
-    }
-
-    if (/\.(jpg|jpeg|png|webp|gif|avif)(?:[?#]|$)/i.test(normalizedUrl)) score += 3;
-    if (/dispimage\.php/i.test(normalizedUrl)) score += 4;
-    if (/(product|goods|item|shop\/files|products_images|content\/dam|esimg|wp-content\/uploads)/i.test(normalizedUrl)) score += 4;
-    if (/(amazon|rakuten|yahoo)/i.test(candidate.pageUrl || '')) score -= 3;
-    if (/(img-ogp|opengraph|ogp)/i.test(normalizedUrl)) score -= 25;
-    if (isObviouslyBadImageText(`${normalizedUrl} ${candidate.context}`)) score -= 25;
-    if (/bnr_|campaign|feature|category/i.test(normalizedUrl)) score -= 20;
-
-    return score;
-  };
-
-  const pickBestImageUrl = (
-    candidates: Array<{ url: string; context: string; pageUrl?: string; pageTitle?: string }>,
-    query: string
-  ) => {
-    const searchTerms = buildSearchTerms(query);
-    const rankedCandidates = candidates
-      .map((candidate) => ({
-        ...candidate,
-        score: scoreImageCandidate(candidate, searchTerms)
-      }))
-      .filter((candidate) => candidate.score > 0)
-      .sort((left, right) => right.score - left.score);
-
-    return rankedCandidates[0]?.url || null;
-  };
-
   const buildImageSearchQuery = (manufacturer: string, productName: string) =>
     [manufacturer.trim(), productName.trim()]
       .filter(Boolean)
@@ -312,69 +44,31 @@ function App() {
       .join(' ');
 
   const fetchGoogleImageUrl = async (query: string): Promise<string | null> => {
-    const searchUrl = `https://www.google.com/search?tbm=isch&hl=ja&safe=off&q=${encodeURIComponent(query)}`;
-    const proxies = [
-      {
-        url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(searchUrl)}`,
-        parser: async (response: Response) => response.text()
-      },
-      {
-        url: `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`,
-        parser: async (response: Response) => {
-          const proxyData = await response.json();
-          if (!proxyData.contents) throw new Error('Invalid allorigins response');
-          return proxyData.contents as string;
-        }
+    if (!serpApiKey) {
+      console.warn('SerpApi key is not set');
+      return null;
+    }
+
+    const searchUrl = `https://serpapi.com/search.json?engine=google_images&q=${encodeURIComponent(query)}&api_key=${serpApiKey}`;
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
+
+    try {
+      const response = await fetch(proxyUrl);
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      const data = await response.json();
+      
+      // allorigins returns the response in a 'contents' field as a string
+      const serpData = JSON.parse(data.contents);
+      
+      if (serpData.images_results && serpData.images_results.length > 0) {
+        // Return the first image result's original URL
+        return serpData.images_results[0].original || serpData.images_results[0].thumbnail || null;
       }
-    ];
-
-    const fetchFromProxy = async ({
-      url,
-      parser
-    }: {
-      url: string;
-      parser: (response: Response) => Promise<string>;
-    }) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-      try {
-        const response = await fetch(url, { signal: controller.signal });
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-        return await parser(response);
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    };
-
-    const searchHtml = await Promise.any(proxies.map((proxy) => fetchFromProxy(proxy)));
-    const directCandidates = extractImageCandidates(searchHtml, 'https://www.google.com').map((candidate) => ({
-      ...candidate,
-      pageUrl: searchUrl,
-      pageTitle: extractDocumentTitle(searchHtml)
-    }));
-    const resultLinks = extractGoogleResultLinks(searchHtml).slice(0, 5);
-
-    const pageCandidates = await Promise.all(
-      resultLinks.map(async (resultLink) => {
-        try {
-          const pageHtml = await fetchFromProxy({
-            url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(resultLink)}`,
-            parser: async (response) => response.text()
-          });
-          const pageTitle = extractDocumentTitle(pageHtml);
-
-          return extractImageCandidates(pageHtml, resultLink).map((candidate) => ({
-            ...candidate,
-            pageUrl: resultLink,
-            pageTitle
-          }));
-        } catch {
-          return [];
-        }
-      })
-    );
-
-    return pickBestImageUrl([...directCandidates, ...pageCandidates.flat()], query);
+      return null;
+    } catch (error) {
+      console.error('SerpApi search failed:', error);
+      return null;
+    }
   };
 
   const fetchProductInfo = async (janCode: string, retries = 2): Promise<{name: string, manufacturer: string, imageUrl: string | null} | null> => {
@@ -1021,6 +715,18 @@ function App() {
                   className="form-control" 
                 />
                 <small>※ 登録するとJANコードから商品名と画像を自動取得します。</small>
+              </div>
+
+              <div className="form-group mt-4">
+                <label>SerpApi API Key (Google Images Search)</label>
+                <input 
+                  type="password" 
+                  value={serpApiKey} 
+                  onChange={(e) => setSerpApiKey(e.target.value)} 
+                  placeholder="SerpApi Key を入力してください"
+                  className="form-control" 
+                />
+                <small>※ 登録するとメーカー名や商品名から、より精度の高い画像を自動取得します。</small>
               </div>
 
               <hr />

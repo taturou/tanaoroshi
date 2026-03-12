@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 const SETTINGS_KEY = 'tanaoroshi_settings_client_id';
 const USERNAME_KEY = 'tanaoroshi_settings_user_name';
 const CATEGORIES_KEY = 'tanaoroshi_settings_categories';
+const SERPAPI_KEY = 'tanaoroshi_settings_serpapi_key';
 
 export function useSettings() {
   const [clientId, setClientId] = useState<string>(() => {
@@ -11,6 +12,10 @@ export function useSettings() {
 
   const [userName, setUserName] = useState<string>(() => {
     return localStorage.getItem(USERNAME_KEY) || '';
+  });
+
+  const [serpApiKey, setSerpApiKey] = useState<string>(() => {
+    return localStorage.getItem(SERPAPI_KEY) || '';
   });
 
   const [categories, setCategories] = useState<string[]>(() => {
@@ -27,6 +32,10 @@ export function useSettings() {
   }, [userName]);
 
   useEffect(() => {
+    localStorage.setItem(SERPAPI_KEY, serpApiKey);
+  }, [serpApiKey]);
+
+  useEffect(() => {
     localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
   }, [categories]);
 
@@ -37,5 +46,5 @@ export function useSettings() {
     }
   };
 
-  return { clientId, setClientId, userName, setUserName, categories, addCategory };
+  return { clientId, setClientId, userName, setUserName, serpApiKey, setSerpApiKey, categories, addCategory };
 }
