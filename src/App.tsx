@@ -212,8 +212,8 @@ function App() {
   const handleSearchImage = async () => {
     const query = buildImageSearchQuery(manufacturerInput, productNameInput);
 
-    if (!productNameInput.trim()) {
-      setImageSearchError('商品名を入力してから画像を探してください。');
+    if (!productNameInput.trim() || !manufacturerInput.trim()) {
+      setImageSearchError('メーカー名と商品名の両方を入力してから画像を探してください。');
       return;
     }
 
@@ -229,7 +229,7 @@ function App() {
 
       setImageUrlInput(foundImageUrl);
     } catch (error) {
-      console.error('Google image search failed:', error);
+      console.error('SerpApi image search failed:', error);
       setImageSearchError('画像検索に失敗しました。時間をおいて再試行してください。');
     } finally {
       setIsSearchingImage(false);
@@ -241,8 +241,8 @@ function App() {
 
     const query = buildImageSearchQuery(editingItem.manufacturer, editingItem.name);
 
-    if (!editingItem.name.trim()) {
-      setEditingImageSearchError('商品名を入力してから画像を探してください。');
+    if (!editingItem.name.trim() || !editingItem.manufacturer.trim()) {
+      setEditingImageSearchError('メーカー名と商品名の両方を入力してから画像を探してください。');
       return;
     }
 
@@ -258,7 +258,7 @@ function App() {
 
       setEditingItem((current) => current ? { ...current, imageUrl: foundImageUrl } : current);
     } catch (error) {
-      console.error('Google image search failed:', error);
+      console.error('SerpApi image search failed:', error);
       setEditingImageSearchError('画像検索に失敗しました。時間をおいて再試行してください。');
     } finally {
       setIsEditingImageSearching(false);
@@ -389,8 +389,6 @@ function App() {
     setForceUpdateRequestId((current) => current + 1);
   };
 
-  const isInputLocked = isExistingItem || isApiFetched;
-
   const filteredItems = items.filter(item => 
     item.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (item.manufacturerName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -482,9 +480,8 @@ function App() {
                         setImageSearchError(null);
                       }} 
                       placeholder="手入力できます"
-                      className={`form-control ${(isInputLocked && manufacturerInput) ? 'readonly' : ''}`} 
+                      className="form-control" 
                       disabled={isFetchingName}
-                      readOnly={!!(isInputLocked && manufacturerInput)}
                       style={{ padding: '0.5rem' }}
                     />
                   </div>
@@ -499,9 +496,8 @@ function App() {
                           setImageSearchError(null);
                         }} 
                         placeholder={isFetchingName ? "取得中..." : "手入力できます"}
-                        className={`form-control ${(isInputLocked && productNameInput) ? 'readonly' : ''}`} 
+                        className="form-control" 
                         disabled={isFetchingName}
-                        readOnly={!!(isInputLocked && productNameInput)}
                         rows={2}
                         style={{ resize: 'none', padding: '0.5rem' }}
                       />
@@ -519,14 +515,14 @@ function App() {
                         <button
                           className="btn btn-outline"
                           onClick={handleSearchImage}
-                          disabled={isFetchingName || isSearchingImage || !productNameInput.trim()}
+                          disabled={isFetchingName || isSearchingImage || !productNameInput.trim() || !manufacturerInput.trim()}
                           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
                         >
                           {isSearchingImage ? <Loader2 className="spinner icon-small" /> : <ImageIcon className="icon-small" />}
-                          {imageUrlInput ? '画像を再検索' : 'Google画像検索で画像を探す'}
+                          {imageUrlInput ? '画像を再検索' : 'インターネットから画像を探す'}
                         </button>
                         <small style={{ display: 'block', marginTop: '4px', fontSize: '0.75rem' }}>
-                          ※ 商品名とメーカー名をもとに Google 画像検索します。
+                          ※ 商品名とメーカー名をもとにインターネットから画像検索します。
                         </small>
                       </div>
                     )}
@@ -870,14 +866,14 @@ function App() {
                   <button
                     className="btn btn-outline"
                     onClick={handleEditSearchImage}
-                    disabled={isEditingImageSearching || !editingItem.name.trim()}
+                    disabled={isEditingImageSearching || !editingItem.name.trim() || !editingItem.manufacturer.trim()}
                     style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
                   >
                     {isEditingImageSearching ? <Loader2 className="spinner icon-small" /> : <ImageIcon className="icon-small" />}
-                    {editingItem.imageUrl ? '画像を再検索' : 'Google画像検索で画像を探す'}
+                    {editingItem.imageUrl ? '画像を再検索' : 'インターネットから画像を探す'}
                   </button>
                   <small style={{ display: 'block', marginTop: '4px', fontSize: '0.75rem' }}>
-                    ※ 商品名とメーカー名をもとに Google 画像検索します。
+                    ※ 商品名とメーカー名をもとにインターネットから画像検索します。
                   </small>
                   {editingImageSearchError && (
                     <small style={{ color: 'red', display: 'block', marginTop: '4px', fontSize: '0.75rem' }}>
