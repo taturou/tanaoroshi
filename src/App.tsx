@@ -770,12 +770,13 @@ function App() {
               <div className="form-group mt-4">
                 <label>SerpApi API Key (Google Images Search)</label>
                 <input 
-                  type="password" 
+                  type="text" 
                   value={serpApiKey} 
                   onChange={(e) => setSerpApiKey(e.target.value)} 
                   placeholder="SerpApi Key を入力してください"
                   className="form-control" 
                 />
+
                 <small>※ 登録するとメーカー名や商品名から、より精度の高い画像を自動取得します。</small>
               </div>
 
