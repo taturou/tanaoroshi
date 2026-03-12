@@ -35,11 +35,25 @@ function App() {
   const [offStatus, setOffStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [isYahooLimitReached, setIsYahooLimitReached] = useState(false);
 
+  // 設定編集ダイアログ用ステート
+  const [editingSettingType, setEditingSettingType] = useState<'clientId' | 'serpApiKey' | null>(null);
+  const [tempSettingValue, setTempSettingValue] = useState('');
+  
+  // トースト用ステート
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   // ClientIDが変更されたら制限フラグとステータスを完全にリセット
   useEffect(() => {
     setIsYahooLimitReached(false);
     setYahooAllStatus('idle');
     setYahooCORSStatus('idle');
+    if (clientId) {
+      showToast('Yahoo! APIの制限状態をリセットしました');
+    }
   }, [clientId]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -438,13 +452,23 @@ function App() {
           category: editingItem.category,
           imageUrl: editingItem.imageUrl || undefined,
           quantity: itemToUpdate.quantity,
-          userName: itemToUpdate.userName
+          userName: itemToUpdate.userName,
         });
       }
       setEditingItem(null);
       setEditingImageSearchError(null);
     }
   };
+
+  const handleSaveSetting = () => {
+    if (editingSettingType === 'clientId') {
+      setClientId(tempSettingValue);
+    } else if (editingSettingType === 'serpApiKey') {
+      setSerpApiKey(tempSettingValue);
+    }
+    setEditingSettingType(null);
+  };
+
 
   const handleExportCSV = () => {
     let exportUserName = userName;
@@ -857,26 +881,31 @@ function App() {
 
               <div className="form-group mt-4">
                 <label>Yahoo!ショッピングAPI Client ID</label>
-                <input 
-                  type="text" 
-                  value={clientId} 
-                  onChange={(e) => setClientId(e.target.value)} 
-                  placeholder="Client ID を入力してください"
+                <div 
                   className="form-control" 
-                />
+                  style={{ backgroundColor: '#f8f9fa', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  onClick={() => {
+                    setEditingSettingType('clientId');
+                    setTempSettingValue(clientId);
+                  }}
+                >
+                  {clientId || <span style={{ color: '#adb5bd' }}>未設定 (タップして入力)</span>}
+                </div>
                 <small>※ 登録するとJANコードから商品名と画像を自動取得します。</small>
               </div>
 
               <div className="form-group mt-4">
                 <label>SerpApi API Key (Google Images Search)</label>
-                <input 
-                  type="text" 
-                  value={serpApiKey} 
-                  onChange={(e) => setSerpApiKey(e.target.value)} 
-                  placeholder="SerpApi Key を入力してください"
+                <div 
                   className="form-control" 
-                />
-
+                  style={{ backgroundColor: '#f8f9fa', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  onClick={() => {
+                    setEditingSettingType('serpApiKey');
+                    setTempSettingValue(serpApiKey);
+                  }}
+                >
+                  {serpApiKey || <span style={{ color: '#adb5bd' }}>未設定 (タップして入力)</span>}
+                </div>
                 <small>※ 登録するとメーカー名や商品名から、より精度の高い画像を自動取得します。</small>
               </div>
 
@@ -1043,6 +1072,53 @@ function App() {
               <button className="btn btn-primary" onClick={handleSaveEdit} style={{ padding: '1.2rem', fontSize: '1.1rem' }}>保存</button>
             </div>
           </div>
+        </div>
+      )}
+      {/* 設定編集モーダル */}
+      {editingSettingType && (
+        <div className="modal-overlay">
+          <div className="modal-content card">
+            <h3>{editingSettingType === 'clientId' ? 'Yahoo! Client ID の編集' : 'SerpApi Key の編集'}</h3>
+            <div className="form-group">
+              <label>値を入力してください</label>
+              <textarea 
+                value={tempSettingValue} 
+                onChange={(e) => setTempSettingValue(e.target.value)} 
+                className="form-control"
+                rows={4}
+                style={{ resize: 'none', padding: '0.5rem', wordBreak: 'break-all' }}
+                placeholder="ここに貼り付けてください"
+              />
+            </div>
+            <div className="form-actions" style={{ gap: '1rem', marginTop: '1rem' }}>
+              <button className="btn btn-secondary" onClick={() => setEditingSettingType(null)} style={{ padding: '1rem', flex: 1 }}>キャンセル</button>
+              <button className="btn btn-primary" onClick={handleSaveSetting} style={{ padding: '1rem', flex: 1 }}>保存</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* トースト表示 */}
+      {toastMessage && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          color: '#fff',
+          padding: '12px 24px',
+          borderRadius: '24px',
+          fontSize: '0.9rem',
+          zIndex: 9999,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          animation: 'fadeIn 0.3s ease'
+        }}>
+          <CheckCircle2 size={18} style={{ color: '#28a745' }} />
+          {toastMessage}
         </div>
       )}
     </div>
