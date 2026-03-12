@@ -5,6 +5,9 @@ node_modules
 .codex/auth.json
 .codex/history.jsonl
 .codex/log
+.codex/logs_1.sqlite
+.codex/logs_1.sqlite-shm
+.codex/logs_1.sqlite-wal
 .codex/models_cache.json
 .codex/node_modules
 .codex/package-lock.json

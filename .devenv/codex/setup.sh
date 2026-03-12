@@ -74,6 +74,9 @@ $CODEX_HOME_RELATIVE/AGENTS.md
 $CODEX_HOME_RELATIVE/auth.json
 $CODEX_HOME_RELATIVE/history.jsonl
 $CODEX_HOME_RELATIVE/log
+$CODEX_HOME_RELATIVE/logs_1.sqlite
+$CODEX_HOME_RELATIVE/logs_1.sqlite-shm
+$CODEX_HOME_RELATIVE/logs_1.sqlite-wal
 $CODEX_HOME_RELATIVE/models_cache.json
 $CODEX_HOME_RELATIVE/node_modules
 $CODEX_HOME_RELATIVE/package-lock.json
